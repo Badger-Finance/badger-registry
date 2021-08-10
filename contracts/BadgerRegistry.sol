@@ -67,8 +67,8 @@ contract BadgerRegistry {
   event AddVersion(string version);
 
   // Known constants you can use
-  string[] public keys; // Notice, you don't have a guarantee of the key being there, it's just a utility
-  string[] public versions; // Notice, you don't have a guarantee of the key being there, it's just a utility
+  string[] public keys; //@notice, you don't have a guarantee of the key being there, it's just a utility
+  string[] public versions; //@notice, you don't have a guarantee of the key being there, it's just a utility
 
 
   //@dev View Data for each strat we will return
@@ -114,7 +114,7 @@ contract BadgerRegistry {
     versions.push("v1"); //For v1
     versions.push("v2"); //For v2
   }
-  
+
   function setGovernance(address _newGov) public {
     require(msg.sender == governance, "!gov");
     governance = _newGov;
