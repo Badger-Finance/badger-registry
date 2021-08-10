@@ -4,112 +4,41 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 
-// Data from Vault
-struct StrategyParams {
-  uint256 performanceFee;
-  uint256 activation;
-  uint256 debtRatio;
-  uint256 minDebtPerHarvest;
-  uint256 maxDebtPerHarvest;
-  uint256 lastReport;
-  uint256 totalDebt;
-  uint256 totalGain;
-  uint256 totalLoss;
-}
-
-interface VaultView {
-  function name() external view returns (string memory);
-  function symbol() external view returns (string memory);
-
-  function token() external view returns (address);
-
-  function strategies(address _strategy) external view returns (StrategyParams memory);
-
-
-  function pendingGovernance() external view returns (address);
-  function governance() external view returns (address);
-  function management() external view returns (address);
-  function guardian() external view returns (address);
-
-  function rewards() external view returns (address);
-
-  function withdrawalQueue(uint256 index) external view returns (address);
-}
-
-interface StratView {
-    function name() external view returns (string memory);
-
-    function strategist() external view returns (address);
-    function rewards() external view returns (address);
-    function keeper() external view returns (address);
-
-}
-
 
 contract BadgerRegistry {
   using EnumerableSet for EnumerableSet.AddressSet;
 
+  enum VaultStatus { experimental, guarded, open }
 
   //@dev Multisig. Vaults from here are considered Production ready
   address public governance;
+  address public devGovernance; //@notice an address with some powers to make things easier in development
 
   //@dev Given an Author Address, and Token, Return the Vault
   mapping(address => mapping(string => EnumerableSet.AddressSet)) private vaults;
 
   mapping(string => address) public addresses;
 
-  event NewVault(address author, string version, address vault);
-  event RemoveVault(address author, string version, address vault);
-  event PromoteVault(address author, string version, address vault);
+  mapping(string => mapping(VaultStatus => address)) public productionVaults;
 
-  event Set(string key, address at);
-  event AddKey(string key);
-  event AddVersion(string version);
+
 
   // Known constants you can use
   string[] public keys; //@notice, you don't have a guarantee of the key being there, it's just a utility
   string[] public versions; //@notice, you don't have a guarantee of the key being there, it's just a utility
 
+  event NewVault(address author, string version, address vault);
+  event RemoveVault(address author, string version, address vault);
+  event PromoteVault(address author, string version, address vault, VaultStatus status);
+  event DemoteVault(address author, string version, address vault, VaultStatus status);
 
-  //@dev View Data for each strat we will return
-  struct StratInfo {
-    address at;
-    string name;
+  event Set(string key, address at);
+  event AddKey(string key);
+  event AddVersion(string version);
 
-    address strategist;
-    address rewards;
-    address keeper;
-
-    uint256 performanceFee;
-    uint256 activation;
-    uint256 debtRatio;
-    uint256 minDebtPerHarvest;
-    uint256 maxDebtPerHarvest;
-    uint256 lastReport;
-    uint256 totalDebt;
-    uint256 totalGain;
-    uint256 totalLoss;
-  }
-
-  /// Vault data we will return for each Vault
-  struct VaultInfo {
-    address at;
-    string name;
-    string symbol;
-
-    address token;
-
-    address pendingGovernance; // If this is non zero, this is an attack from the deployer
-    address governance;
-    address rewards;
-    address guardian;
-    address management;
-
-    StratInfo[] strategies;
-  }
-
-  constructor (address _governance) public {
-    governance = _governance;
+  constructor () public {
+    governance = msg.sender;
+    devGovernance = msg.sender;
 
     versions.push("v1"); //For v1
     versions.push("v2"); //For v2
@@ -118,6 +47,11 @@ contract BadgerRegistry {
   function setGovernance(address _newGov) public {
     require(msg.sender == governance, "!gov");
     governance = _newGov;
+  }
+
+  function setDev(address newDev) public {
+    require(msg.sender == governance || msg.sender == devGovernance, "!gov");
+    devGovernance = newDev;
   }
 
   //@dev Utility function to add Versions for Vaults, 
@@ -148,13 +82,23 @@ contract BadgerRegistry {
 
   //@dev Promote a vault to Production
   //@dev Promote just means indexed by the Governance Address
-  function promote(string memory version, address vault) public {
-    require(msg.sender == governance, "!gov");
-    bool promoted = vaults[msg.sender][version].add(vault);
+  function promote(string memory version, address vault, VaultStatus status) public {
+    require(msg.sender == governance || devGovernance, "!gov");
 
-    if (promoted) { 
-      emit PromoteVault(msg.sender, version, vault);
+    if(status == VaultStatus.open) {
+      require(msg.sender == governance);
     }
+
+    productionVaults[version][status] = vault;
+
+    emit PromoteVault(msg.sender, version, vault, status);
+  }
+
+  function demote(string memory version, address vault, VaultStatus status) public {
+    require(msg.sender == governance || devGovernance, "!gov");
+    delete productionVaults[version][status];
+
+    emit DemoteVault(msg.sender, version, vault, status);
   }
 
   /** KEY Management */
@@ -183,7 +127,7 @@ contract BadgerRegistry {
   }
 
   //@dev Retrieve a list of all Vault Addresses from the given author
-  function fromAuthor(address author, string memory version) public view returns (address[] memory) {
+  function getVaults(address author, string memory version) public view returns (address[] memory) {
     uint256 length = vaults[author][version].length();
 
     address[] memory list = new address[](length);
@@ -192,91 +136,4 @@ contract BadgerRegistry {
     }
     return list;
   }
-
-  //@dev Retrieve a list of all Vaults and the basic Vault info
-  function fromAuthorVaults(address author, string memory version) public view returns (VaultInfo[] memory) {
-    uint256 length = vaults[author][version].length();
-
-    VaultInfo[] memory vaultData = new VaultInfo[](length);
-    for(uint x = 0; x < length; x++){
-      VaultView vault = VaultView(vaults[author][version].at(x));
-      StratInfo[] memory allStrats = new StratInfo[](0);
-
-      VaultInfo memory data = VaultInfo({
-        at: vaults[author][version].at(x),
-        name: vault.name(),
-        symbol: vault.symbol(),
-        token: vault.token(),
-        pendingGovernance: vault.pendingGovernance(),
-        governance: vault.governance(),
-        rewards: vault.rewards(),
-        guardian: vault.guardian(),
-        management: vault.management(),
-        strategies: allStrats
-      });
-
-      vaultData[x] = data;
-    }
-    return vaultData;
-  }
-
-
-  //@dev Given the Vault, retrieve all the data as well as all data related to the strategies
-  function fromAuthorWithDetails(address author, string memory version) public view returns (VaultInfo[] memory) {
-    uint256 length = vaults[author][version].length();
-    VaultInfo[] memory vaultData = new VaultInfo[](length);
-    
-    for(uint x = 0; x < length; x++){
-      VaultView vault = VaultView(vaults[author][version].at(x));
-
-      uint stratCount = 0;
-      for(uint y = 0; y < 20; y++){
-        if(vault.withdrawalQueue(y) != address(0)){
-          stratCount++;
-        }
-      }
-      StratInfo[] memory allStrats = new StratInfo[](stratCount);
-
-      for(uint z = 0; z < stratCount; z++){
-        StratView strat = StratView(vault.withdrawalQueue(z));
-        StrategyParams memory params = vault.strategies(vault.withdrawalQueue(z));
-        StratInfo memory stratData = StratInfo({
-          at: vault.withdrawalQueue(z),
-          name: strat.name(),
-          strategist: strat.strategist(),
-          rewards: strat.rewards(),
-          keeper: strat.keeper(),
-
-          performanceFee: params.performanceFee,
-          activation: params.activation,
-          debtRatio: params.debtRatio,
-          minDebtPerHarvest: params.minDebtPerHarvest,
-          maxDebtPerHarvest: params.maxDebtPerHarvest,
-          lastReport: params.lastReport,
-          totalDebt: params.totalDebt,
-          totalGain: params.totalGain,
-          totalLoss: params.totalLoss
-        });
-        allStrats[z] = stratData;
-      }
-
-      VaultInfo memory data = VaultInfo({
-        at: vaults[author][version].at(x),
-        name: vault.name(),
-        symbol: vault.symbol(),
-        token: vault.token(),
-        pendingGovernance: vault.pendingGovernance(),
-        governance: vault.governance(),
-        rewards: vault.rewards(),
-        guardian: vault.guardian(),
-        management: vault.management(),
-        strategies: allStrats
-      });
-
-      vaultData[x] = data;
-    }
-
-    return vaultData;
-  }
-
 }
