@@ -119,6 +119,7 @@ contract BadgerRegistry {
   //@notice e.g. controller = 0x123123 
   function set(string memory key, address at) public {
     require(msg.sender == governance, "!gov");
+    _addKey(key);
     addresses[key] = at;
     emit Set(key, at);
   }
@@ -132,10 +133,20 @@ contract BadgerRegistry {
   //@notice This is used to make it easier to discover keys, 
   //@notice however you have no guarantee that all keys will be in the list
   function _addKey(string memory key) internal {
+    //If we find the key, skip
     bool found = false;
     for(uint256 x = 0; x < keys.length; x++){
-
+      // Compare strings via their hash because solidity
+      if(keccak256(bytes(key)) == keccak256(bytes(keys[x]))) {
+        found = true;
+      }
     }
+
+    if(found) {
+      return;
+    }
+
+    // Else let's add it and emit the event
     keys.push(key);
 
     emit AddKey(key);
@@ -153,7 +164,7 @@ contract BadgerRegistry {
   }
 
   //@dev Retrieve a list of all Vaults that are in production, based on Version and Status
-  function getProductionVaults(string version, VaultStatus status) public view returns (address[] memory) {
+  function getProductionVaults(string memory version, VaultStatus status) public view returns (address[] memory) {
     uint256 length = productionVaults[version][status].length();
 
     address[] memory list = new address[](length);
