@@ -131,8 +131,11 @@ contract BadgerRegistry {
   //@dev Add a key to the list of keys
   //@notice This is used to make it easier to discover keys, 
   //@notice however you have no guarantee that all keys will be in the list
-  function addKey(string memory key) public {
-    require(msg.sender == governance, "!gov");
+  function _addKey(string memory key) internal {
+    bool found = false;
+    for(uint256 x = 0; x < keys.length; x++){
+
+    }
     keys.push(key);
 
     emit AddKey(key);
@@ -148,4 +151,16 @@ contract BadgerRegistry {
     }
     return list;
   }
+
+  //@dev Retrieve a list of all Vaults that are in production, based on Version and Status
+  function getProductionVaults(string version, VaultStatus status) public view returns (address[] memory) {
+    uint256 length = productionVaults[version][status].length();
+
+    address[] memory list = new address[](length);
+    for (uint256 i = 0; i < length; i++) {
+      list[i] = productionVaults[version][status].at(i);
+    }
+    return list;
+  }
+
 }
