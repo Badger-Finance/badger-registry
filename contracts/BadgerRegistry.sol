@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 contract BadgerRegistry {
   using EnumerableSet for EnumerableSet.AddressSet;
 
+  //@dev is the vault at the experimental, guarded or open stage? Only for Prod Vaults
   enum VaultStatus { experimental, guarded, open }
 
   //@dev Multisig. Vaults from here are considered Production ready
@@ -16,10 +17,10 @@ contract BadgerRegistry {
 
   //@dev Given an Author Address, and Token, Return the Vault
   mapping(address => mapping(string => EnumerableSet.AddressSet)) private vaults;
-
   mapping(string => address) public addresses;
 
-  mapping(string => mapping(VaultStatus => address)) public productionVaults;
+  //@dev Given Version and VaultStatus, returns the list of Vaults in production
+  mapping(string => mapping(VaultStatus => EnumerableSet.AddressSet)) private productionVaults;
 
 
 
@@ -83,22 +84,33 @@ contract BadgerRegistry {
   //@dev Promote a vault to Production
   //@dev Promote just means indexed by the Governance Address
   function promote(string memory version, address vault, VaultStatus status) public {
-    require(msg.sender == governance || devGovernance, "!gov");
+    require(msg.sender == governance || msg.sender == devGovernance, "!gov");
 
-    if(status == VaultStatus.open) {
-      require(msg.sender == governance);
+    VaultStatus actualStatus = status;
+    if(msg.sender == devGovernance) {
+      actualStatus = VaultStatus.experimental;
     }
 
-    productionVaults[version][status] = vault;
+    bool added = productionVaults[version][actualStatus].add(vault);
 
-    emit PromoteVault(msg.sender, version, vault, status);
+    if (added) { 
+      emit PromoteVault(msg.sender, version, vault, actualStatus); 
+    }
   }
 
   function demote(string memory version, address vault, VaultStatus status) public {
-    require(msg.sender == governance || devGovernance, "!gov");
-    delete productionVaults[version][status];
+    require(msg.sender == governance || msg.sender == devGovernance, "!gov");
 
-    emit DemoteVault(msg.sender, version, vault, status);
+    VaultStatus actualStatus = status;
+    if(msg.sender == devGovernance) {
+      actualStatus = VaultStatus.experimental;
+    }
+
+    bool removed = productionVaults[version][actualStatus].remove(vault);
+
+    if (removed) { 
+      emit DemoteVault(msg.sender, version, vault, status);
+    }
   }
 
   /** KEY Management */
