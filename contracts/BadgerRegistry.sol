@@ -229,7 +229,6 @@ contract BadgerRegistry {
     for(uint x = 0; x < length; x++){
       VaultView vault = VaultView(vaults[author][version].at(x));
 
-      // TODO: Strat Info with real data
       uint stratCount = 0;
       for(uint y = 0; y < 20; y++){
         if(vault.withdrawalQueue(y) != address(0)){
