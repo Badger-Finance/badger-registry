@@ -11,6 +11,12 @@ contract BadgerRegistry {
   //@dev is the vault at the experimental, guarded or open stage? Only for Prod Vaults
   enum VaultStatus { experimental, guarded, open }
 
+  struct VaultInfo {
+    address at;
+    string version;
+    VaultStatus status;
+  }
+
   //@dev Multisig. Vaults from here are considered Production ready
   address public governance;
   address public devGovernance; //@notice an address with some powers to make things easier in development
@@ -21,8 +27,6 @@ contract BadgerRegistry {
 
   //@dev Given Version and VaultStatus, returns the list of Vaults in production
   mapping(string => mapping(VaultStatus => EnumerableSet.AddressSet)) private productionVaults;
-
-
 
   // Known constants you can use
   string[] public keys; //@notice, you don't have a guarantee of the key being there, it's just a utility
@@ -164,7 +168,7 @@ contract BadgerRegistry {
   }
 
   //@dev Retrieve a list of all Vaults that are in production, based on Version and Status
-  function getProductionVaults(string memory version, VaultStatus status) public view returns (address[] memory) {
+  function getFilteredProductionVaults(string memory version, VaultStatus status) public view returns (address[] memory) {
     uint256 length = productionVaults[version][status].length();
 
     address[] memory list = new address[](length);
@@ -174,4 +178,22 @@ contract BadgerRegistry {
     return list;
   }
 
+  function getProductionVaults() public view returns (VaultInfo memory) {
+    uint256 versionsCount = versions.length;
+    uint256 length = versionsCount * 3; // 3 status all versions
+
+    VaultInfo[] memory list = new VaultInfo[](length);
+    // Iterate over the status
+    for(uint256 x = 0; x < versionsCount; x++) {
+      for(uint256 y = 0; y < 3; y++) {
+        for(uint256 z = 0; z < productionVaults[versions[x]][VaultStatus(y)].length(); z++){
+          list[x * versionsCount + y * 3] = VaultInfo({
+            at: productionVaults[versions[x]][VaultStatus(y)].at(z),
+            version: versions[x],
+            status: VaultStatus(y)
+          });
+        }
+      }
+    }
+  }
 }

@@ -2,6 +2,8 @@
 pragma solidity >=0.6.0 <0.7.0;
 pragma experimental ABIEncoderV2;
 
+// NOTE: Currently Unused
+
 // Data from Vault
 struct StrategyParams {
   uint256 performanceFee;
