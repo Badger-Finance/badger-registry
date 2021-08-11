@@ -142,7 +142,7 @@ contract BadgerRegistry {
   }
 
   //@dev Retrieve the value of a key
-  function get(string memory key) public returns (address){
+  function get(string memory key) public view returns (address){
     return addresses[key];
   }
 
