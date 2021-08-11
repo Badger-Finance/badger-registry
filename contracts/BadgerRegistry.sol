@@ -97,7 +97,19 @@ contract BadgerRegistry {
 
     bool added = productionVaults[version][actualStatus].add(vault);
 
+    // If added remove from old and emit event
     if (added) { 
+      // also remove from old prod
+      if(uint256(actualStatus) == 2){
+        // Remove from prev2
+        productionVaults[version][VaultStatus(0)].remove(vault);
+        productionVaults[version][VaultStatus(1)].remove(vault);
+      }
+      if(uint256(actualStatus) == 1){
+        // Remove from prev1
+        productionVaults[version][VaultStatus(0)].remove(vault);
+      }
+
       emit PromoteVault(msg.sender, version, vault, actualStatus); 
     }
   }
@@ -157,7 +169,7 @@ contract BadgerRegistry {
   }
 
   //@dev Retrieve a list of all Vault Addresses from the given author
-  function getVaults(address author, string memory version) public view returns (address[] memory) {
+  function getVaults(string memory version, address author) public view returns (address[] memory) {
     uint256 length = vaults[author][version].length();
 
     address[] memory list = new address[](length);
