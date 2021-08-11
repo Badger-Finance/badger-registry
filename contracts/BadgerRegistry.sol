@@ -11,10 +11,10 @@ contract BadgerRegistry {
   //@dev is the vault at the experimental, guarded or open stage? Only for Prod Vaults
   enum VaultStatus { experimental, guarded, open }
 
-  struct VaultInfo {
-    address at;
+  struct VaultData {
     string version;
     VaultStatus status;
+    address[] list;
   }
 
   //@dev Multisig. Vaults from here are considered Production ready
@@ -43,7 +43,7 @@ contract BadgerRegistry {
 
   constructor () public {
     governance = msg.sender;
-    devGovernance = msg.sender;
+    devGovernance = address(0);
 
     versions.push("v1"); //For v1
     versions.push("v2"); //For v2
@@ -190,22 +190,26 @@ contract BadgerRegistry {
     return list;
   }
 
-  function getProductionVaults() public view returns (VaultInfo memory) {
+  function getProductionVaults() public view returns (VaultData[] memory) {
     uint256 versionsCount = versions.length;
-    uint256 length = versionsCount * 3; // 3 status all versions
 
-    VaultInfo[] memory list = new VaultInfo[](length);
-    // Iterate over the status
+    VaultData[] memory data = new VaultData[](versionsCount * 3);
+
     for(uint256 x = 0; x < versionsCount; x++) {
       for(uint256 y = 0; y < 3; y++) {
-        for(uint256 z = 0; z < productionVaults[versions[x]][VaultStatus(y)].length(); z++){
-          list[x * versionsCount + y * 3] = VaultInfo({
-            at: productionVaults[versions[x]][VaultStatus(y)].at(z),
-            version: versions[x],
-            status: VaultStatus(y)
-          });
+        uint256 length = productionVaults[versions[x]][VaultStatus(y)].length();
+        address[] memory list = new address[](length);
+        for(uint256 z = 0; z < length; z++){
+          list[z] = productionVaults[versions[x]][VaultStatus(y)].at(z);
         }
+        data[x * (versionsCount - 1) + y * 2] = VaultData({
+          version: versions[x],
+          status: VaultStatus(y),
+          list: list
+        });
       }
     }
+
+    return data;
   }
 }
