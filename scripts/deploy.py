@@ -3,11 +3,11 @@
 """
 from scripts.helpers.connect_account import connect_account
 import click
-from brownie import AdminUpgradeabilityProxy, config, web3, project
+from brownie import BadgerRegistry, AdminUpgradeabilityProxy, config, web3, project
 
 ## Load ContractContainers from Badger Vaults
 
-proxyAdmin = web3.toChecksumAddress("0xB10b3Af646Afadd9C62D663dd5d226B15C25CdFA"),
+proxyAdmin = web3.toChecksumAddress("0xB10b3Af646Afadd9C62D663dd5d226B15C25CdFA")
 
 
 def deploy_registry_logic(logic):
@@ -17,7 +17,9 @@ def deploy_registry_logic(logic):
     dev = connect_account()
 
     if click.confirm("Deploy New Registry"):
-        args = []
+        args = [
+          dev.address ## Give yourself governance
+        ]
 
         strat_logic = logic.deploy({'from': dev})
         registry_proxy = AdminUpgradeabilityProxy.deploy(strat_logic, proxyAdmin, strat_logic.initialize.encode_input(*args), {'from': dev})
@@ -33,5 +35,5 @@ def deploy_registry_logic(logic):
         return registry_proxy
 
 def main():
-    strat = deploy_registry_logic(AdminUpgradeabilityProxy)
+    strat = deploy_registry_logic(BadgerRegistry)
     return strat

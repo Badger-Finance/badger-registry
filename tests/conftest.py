@@ -16,11 +16,14 @@ def gov(accounts):
 
 @pytest.fixture
 def registry(gov, BadgerRegistry):
-    yield gov.deploy(BadgerRegistry)
+    registry = gov.deploy(BadgerRegistry)
+    registry.initialize(gov)
+    yield registry
 
 @pytest.fixture
 def devGov(accounts, registry, gov):
   registry.setDev(accounts[3], {"from": gov})
+  
   return accounts[3]
   
 

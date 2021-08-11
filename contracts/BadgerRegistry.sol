@@ -41,8 +41,9 @@ contract BadgerRegistry {
   event AddKey(string key);
   event AddVersion(string version);
 
-  constructor () public {
-    governance = msg.sender;
+  function initialize(address newGovernance) public {
+    require(governance == address(0));
+    governance = newGovernance;
     devGovernance = address(0);
 
     versions.push("v1"); //For v1
