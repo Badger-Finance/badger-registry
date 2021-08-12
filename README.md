@@ -32,3 +32,14 @@ https://polygonscan.com/address/0xfda7eb6f8b7a9e9fcfd348042ae675d1d652454f
 2. Get the registry ```Registry.at("ADDRESS FOR THE NETWORK YOU WANT")```
 3. Get the keys ```Registry.get("whatever")```
 
+
+## More details
+
+### Find keys without knowing what they are
+Go spam `keys(uint)` with various indexes until you run out of range
+
+### Find versions without knowing what they are
+Go spam `versions(uint)` with various indexes until you run out of range
+
+### Find Production Steps / Status for Vaults
+Check the Enum `VaultStatus` for the steps
