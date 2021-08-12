@@ -26,3 +26,9 @@ https://polygonscan.com/address/0xfda7eb6f8b7a9e9fcfd348042ae675d1d652454f
 ### Get all Production Vaults, separated by Version and Type
 ```registry.getProductionVaults();```
 
+## Brownie Usage
+
+1. Run The Console ```brownie console```
+2. Get the registry ```Registry.at("ADDRESS FOR THE NETWORK YOU WANT")```
+3. Get the keys ```Registry.get("whatever")```
+
