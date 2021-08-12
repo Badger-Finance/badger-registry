@@ -10,8 +10,8 @@ https://etherscan.io/address/0xfda7eb6f8b7a9e9fcfd348042ae675d1d652454f
 Polygon:
 https://polygonscan.com/address/0xfda7eb6f8b7a9e9fcfd348042ae675d1d652454f
 
-## Example Usage - Keys
-### Get the Address of the Controller for this network
+## Example Usage - Keys
+### Get the Address of the Controller for this network
 ```registry.get("controller")```
 
 ## Example Usage - Vaults
