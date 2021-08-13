@@ -29,7 +29,7 @@ https://polygonscan.com/address/0xfda7eb6f8b7a9e9fcfd348042ae675d1d652454f
 ## Brownie Usage
 
 1. Run The Console ```brownie console```
-2. Get the registry ```registry = Registry.at("ADDRESS FOR THE NETWORK YOU WANT")```
+2. Get the registry ```registry = BadgerRegistry.at("ADDRESS FOR THE NETWORK YOU WANT")```
 3. Get the keys ```registry.get("whatever")```
 
 
