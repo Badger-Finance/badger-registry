@@ -39,6 +39,7 @@ contract BadgerRegistry {
 
   event Set(string key, address at);
   event AddKey(string key);
+  event DeleteKey(string key);
   event AddVersion(string version);
 
   function initialize(address newGovernance) public {
@@ -60,7 +61,7 @@ contract BadgerRegistry {
     devGovernance = newDev;
   }
 
-  //@dev Utility function to add Versions for Vaults, 
+  //@dev Utility function to add Versions for Vaults,
   //@notice No guarantee that it will be properly used
   function addVersions(string memory version) public {
     require(msg.sender == governance, "!gov");
@@ -73,7 +74,7 @@ contract BadgerRegistry {
   //@dev Anyone can add a vault to here, it will be indexed by their address
   function add(string memory version, address vault) public {
     bool added = vaults[msg.sender][version].add(vault);
-    if (added) { 
+    if (added) {
       emit NewVault(msg.sender, version, vault);
     }
   }
@@ -81,8 +82,8 @@ contract BadgerRegistry {
   //@dev Remove the vault from your index
   function remove(string memory version, address vault) public {
     bool removed = vaults[msg.sender][version].remove(vault);
-    if (removed) { 
-      emit RemoveVault(msg.sender, version, vault); 
+    if (removed) {
+      emit RemoveVault(msg.sender, version, vault);
      }
   }
 
@@ -99,7 +100,7 @@ contract BadgerRegistry {
     bool added = productionVaults[version][actualStatus].add(vault);
 
     // If added remove from old and emit event
-    if (added) { 
+    if (added) {
       // also remove from old prod
       if(uint256(actualStatus) == 2){
         // Remove from prev2
@@ -111,7 +112,7 @@ contract BadgerRegistry {
         productionVaults[version][VaultStatus(0)].remove(vault);
       }
 
-      emit PromoteVault(msg.sender, version, vault, actualStatus); 
+      emit PromoteVault(msg.sender, version, vault, actualStatus);
     }
   }
 
@@ -125,7 +126,7 @@ contract BadgerRegistry {
 
     bool removed = productionVaults[version][actualStatus].remove(vault);
 
-    if (removed) { 
+    if (removed) {
       emit DemoteVault(msg.sender, version, vault, status);
     }
   }
@@ -133,7 +134,7 @@ contract BadgerRegistry {
   /** KEY Management */
 
   //@dev Set the value of a key to a specific address
-  //@notice e.g. controller = 0x123123 
+  //@notice e.g. controller = 0x123123
   function set(string memory key, address at) public {
     require(msg.sender == governance, "!gov");
     _addKey(key);
@@ -141,26 +142,42 @@ contract BadgerRegistry {
     emit Set(key, at);
   }
 
+  //@dev Delete a key
+  function deleteKey(string memory key) public {
+    require(msg.sender == governance, "!gov");
+    for(uint256 x = 0; x < keys.length; x++){
+      // Compare strings via their hash because solidity
+      if(keccak256(bytes(key)) == keccak256(bytes(keys[x]))) {
+        delete addresses[key];
+        keys[x] = keys[keys.length - 1];
+        keys.pop();
+        emit DeleteKey(key);
+        return;
+      }
+    }
+
+  }
+
   //@dev Retrieve the value of a key
   function get(string memory key) public view returns (address){
     return addresses[key];
   }
 
+  //@dev Get keys count
+  function keysCount() public view returns (uint256){
+    return keys.length;
+  }
+
   //@dev Add a key to the list of keys
-  //@notice This is used to make it easier to discover keys, 
+  //@notice This is used to make it easier to discover keys,
   //@notice however you have no guarantee that all keys will be in the list
   function _addKey(string memory key) internal {
     //If we find the key, skip
-    bool found = false;
     for(uint256 x = 0; x < keys.length; x++){
       // Compare strings via their hash because solidity
       if(keccak256(bytes(key)) == keccak256(bytes(keys[x]))) {
-        found = true;
+        return;
       }
-    }
-
-    if(found) {
-      return;
     }
 
     // Else let's add it and emit the event
