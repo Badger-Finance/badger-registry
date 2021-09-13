@@ -43,3 +43,32 @@ Go spam `versions(uint)` with various indexes until you run out of range
 
 ### Find Production Steps / Status for Vaults
 Check the Enum `VaultStatus` for the steps
+
+
+## List of Keys (incomplete)
+
+By defintion the list of keys is incomplete, just iterate over the `keys(uint256)` to find them
+Some of these keys may be missing in some deployments
+While not a security vulnerability this may impact some of our flows
+Please do create a ISSUE if you find a missing key
+
+This is a list of keys we use at Badger to standardize cross-chain deployments
+
+- controller
+- guardian
+- keeper
+- badgerTree
+- governance
+- devGovernance
+
+
+- proxyAdminDev
+- proxyAdminTimelock
+- governanceTimelock
+- timelock
+
+- keeperAccessControl
+- rewardsLogger
+
+- BADGER
+- ibBTC
