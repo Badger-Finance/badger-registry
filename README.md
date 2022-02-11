@@ -13,6 +13,9 @@ https://polygonscan.com/address/0xfda7eb6f8b7a9e9fcfd348042ae675d1d652454f
 Arbitrum:
 https://arbiscan.io/address/0xFda7eB6f8b7a9e9fCFd348042ae675d1d652454f#code
 
+Fantom
+https://ftmscan.com/address/0xFda7eB6f8b7a9e9fCFd348042ae675d1d652454f
+
 ## Example Usage - Keys
 ### Get the Address of the Controller for this network
 ```registry.get("controller")```
