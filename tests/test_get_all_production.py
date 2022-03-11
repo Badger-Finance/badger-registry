@@ -23,9 +23,9 @@ def test_vault_promotion_permissions(
 
     result = registry.getProductionVaults()
 
-    assert result[0] == ("v1", 0, [vault_one])
-    assert result[1] == ("v2", 0, [])
-    assert result[2] == ("v1", 1, [])
-    assert result[3] == ("v2", 1, [vault_two])
-    assert result[4] == ("v1", 2, [vault_three])
-    assert result[5] == ("v2", 2, [])
+    assert result[0] == ("v1", 0, [vault_one], [""])
+    assert result[1] == ("v2", 0, [], [])
+    assert result[2] == ("v1", 1, [], [])
+    assert result[3] == ("v2", 1, [vault_two], [""])
+    assert result[4] == ("v1", 2, [vault_three], [""])
+    assert result[5] == ("v2", 2, [], [])

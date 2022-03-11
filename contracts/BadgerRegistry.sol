@@ -19,6 +19,7 @@ contract BadgerRegistry {
         string version;
         VaultStatus status;
         address[] list;
+        string[] metadata;
     }
 
     //@dev Multisig. Vaults from here are considered Production ready
@@ -279,29 +280,37 @@ contract BadgerRegistry {
         }
     }
 
-    function getProductionVaults() public view returns (VaultData[] memory) {
+    function getProductionVaults()
+        public
+        view
+        returns (VaultData[] memory vaultData)
+    {
         uint256 versionsCount = versions.length;
 
-        VaultData[] memory data = new VaultData[](versionsCount * 3);
+        vaultData = new VaultData[](versionsCount * 3);
 
         for (uint256 x = 0; x < versionsCount; x++) {
             for (uint256 y = 0; y < 3; y++) {
                 uint256 length = productionVaults[versions[x]][VaultStatus(y)]
                     .length();
-                address[] memory list = new address[](length);
+                address[] memory vaultAddresses = new address[](length);
+                string[] memory vaultMetadata = new string[](length);
+
                 for (uint256 z = 0; z < length; z++) {
-                    list[z] = productionVaults[versions[x]][VaultStatus(y)].at(
-                        z
-                    );
+                    address currentVault = productionVaults[versions[x]][
+                        VaultStatus(y)
+                    ].at(z);
+
+                    vaultAddresses[z] = currentVault;
+                    vaultMetadata[z] = metadata[currentVault];
                 }
-                data[x * (versionsCount - 1) + y * 2] = VaultData({
+                vaultData[x * (versionsCount - 1) + y * 2] = VaultData({
                     version: versions[x],
                     status: VaultStatus(y),
-                    list: list
+                    list: vaultAddresses,
+                    metadata: vaultMetadata
                 });
             }
         }
-
-        return data;
     }
 }
