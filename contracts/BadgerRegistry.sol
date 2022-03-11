@@ -11,7 +11,8 @@ contract BadgerRegistry {
     enum VaultStatus {
         experimental,
         guarded,
-        open
+        open,
+        deprecated
     }
 
     struct VaultData {
@@ -140,6 +141,12 @@ contract BadgerRegistry {
 
         // If added remove from old and emit event
         if (added) {
+            // remove  deprecated vault from all other stages
+            if (uint256(actualStatus) == 3) {
+                productionVaults[version][VaultStatus(0)].remove(vault);
+                productionVaults[version][VaultStatus(1)].remove(vault);
+                productionVaults[version][VaultStatus(2)].remove(vault);
+            }
             // also remove from old prod
             if (uint256(actualStatus) == 2) {
                 // Remove from prev2
@@ -155,6 +162,7 @@ contract BadgerRegistry {
         }
     }
 
+    //TODO do we need this function if we are now having the deprecated status?
     function demote(
         string memory version,
         address vault,
