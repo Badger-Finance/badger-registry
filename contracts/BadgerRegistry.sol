@@ -3,21 +3,26 @@ pragma solidity >=0.6.0 <0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
+import "./utils/Strings2Bytes32.sol";
 
 contract BadgerRegistry {
+    using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
+    using Strings2Bytes32 for string;
 
     //@dev is the vault at the experimental, guarded or open stage? Only for Prod Vaults
     enum VaultStatus {
         experimental,
         guarded,
-        open
+        open,
+        deprecated
     }
 
     struct VaultData {
         string version;
         VaultStatus status;
         address[] list;
+        string metadata;
     }
 
     //@dev Multisig. Vaults from here are considered Production ready
@@ -27,6 +32,7 @@ contract BadgerRegistry {
     //@dev Given an Author Address, and Token, Return the Vault
     mapping(address => mapping(string => EnumerableSet.AddressSet))
         private vaults;
+    //@dev Given a Key, Return the Address
     mapping(string => address) public addresses;
 
     //@dev Given Version and VaultStatus, returns the list of Vaults in production
@@ -37,17 +43,45 @@ contract BadgerRegistry {
     string[] public keys; //@notice, you don't have a guarantee of the key being there, it's just a utility
     string[] public versions; //@notice, you don't have a guarantee of the key being there, it's just a utility
 
-    event NewVault(address author, string version, address vault);
-    event RemoveVault(address author, string version, address vault);
+    uint256 internal statusCount;
+    address[] public strategistGuild;
+    uint256 public multiSigThreshold;
+    string[] public productionMetadatas;
+    //@dev Given an address, return its membership in strategistGuild
+    mapping(address => bool) public isStrategist;
+    mapping(bytes32 => uint256) public promoteConfirmations;
+    //@dev Given an Author Address, Version and Metadata, Return the list of Vaults
+    mapping(address => mapping(string => mapping(string => EnumerableSet.AddressSet)))
+        internal vaultsWithMetadata;
+    //@dev Given Version, Metadata and VaultStatus, returns the list of Vaults in production
+    mapping(string => mapping(string => mapping(VaultStatus => EnumerableSet.AddressSet)))
+        internal productionVaultsWithMetadata;
+    //@dev Given an Address, Return the Keys
+    mapping(address => EnumerableSet.Bytes32Set) internal address2Keys;
+
+    event NewVault(
+        address author,
+        string version,
+        string metadata,
+        address vault
+    );
+    event RemoveVault(
+        address author,
+        string version,
+        string metadata,
+        address vault
+    );
     event PromoteVault(
         address author,
         string version,
+        string metadata,
         address vault,
         VaultStatus status
     );
     event DemoteVault(
         address author,
         string version,
+        string metadata,
         address vault,
         VaultStatus status
     );
@@ -56,14 +90,43 @@ contract BadgerRegistry {
     event AddKey(string key);
     event DeleteKey(string key);
     event AddVersion(string version);
+    event AddMetadata(string metadata);
 
-    function initialize(address newGovernance) public {
-        require(governance == address(0));
+    function initialize(
+        address newGovernance,
+        address[] memory _strategistGuild,
+        uint256 _multiSigThreshold,
+        bool withAddress2KeysInitialization
+    ) public {
+        require(
+            governance == address(0) &&
+                strategistGuild.length == 0 &&
+                _multiSigThreshold > 0
+        );
         governance = newGovernance;
         devGovernance = address(0);
+        for (uint256 i = 0; i < _strategistGuild.length; i++) {
+            address owner = _strategistGuild[i];
+            require(owner != address(0));
+            isStrategist[owner] = true;
+        }
+        strategistGuild = _strategistGuild;
+        multiSigThreshold = _multiSigThreshold;
 
         versions.push("v1"); //For v1
         versions.push("v2"); //For v2
+
+        productionMetadatas.push("");
+
+        statusCount = 4;
+
+        if (withAddress2KeysInitialization) {
+            for (uint256 i = 0; i < keys.length; i++) {
+                string storage key = keys[i];
+                address target = addresses[key];
+                address2Keys[target].add(key.toBytes32());
+            }
+        }
     }
 
     function setGovernance(address _newGov) public {
@@ -79,28 +142,65 @@ contract BadgerRegistry {
         devGovernance = newDev;
     }
 
+    function setStrategistGuild(
+        address[] memory _strategistGuild,
+        uint256 _multiSigThreshold
+    ) public {
+        require(msg.sender == governance, "!gov");
+        require(_multiSigThreshold > 0);
+        for (uint256 i = 0; i < strategistGuild.length; i++) {
+            isStrategist[strategistGuild[i]] = false;
+        }
+        for (uint256 i = 0; i < _strategistGuild.length; i++) {
+            address owner = _strategistGuild[i];
+            require(owner != address(0));
+            isStrategist[owner] = true;
+        }
+        strategistGuild = _strategistGuild;
+        multiSigThreshold = _multiSigThreshold;
+    }
+
     //@dev Utility function to add Versions for Vaults,
     //@notice No guarantee that it will be properly used
-    function addVersions(string memory version) public {
+    function addVersion(string memory version) public {
         require(msg.sender == governance, "!gov");
         versions.push(version);
 
         emit AddVersion(version);
     }
 
+    //@dev Utility function to add Metadata for Vaults,
+    //@notice No guarantee that it will be properly used
+    function addMetadata(string memory metadata) public {
+        require(msg.sender == governance, "!gov");
+        productionMetadatas.push(metadata);
+
+        emit AddMetadata(metadata);
+    }
+
     //@dev Anyone can add a vault to here, it will be indexed by their address
-    function add(string memory version, address vault) public {
-        bool added = vaults[msg.sender][version].add(vault);
+    function add(
+        string memory version,
+        address vault,
+        string memory metadata
+    ) public {
+        bool added = _getVaultSet(msg.sender, version, metadata).add(vault);
         if (added) {
-            emit NewVault(msg.sender, version, vault);
+            emit NewVault(msg.sender, version, metadata, vault);
         }
     }
 
     //@dev Remove the vault from your index
-    function remove(string memory version, address vault) public {
-        bool removed = vaults[msg.sender][version].remove(vault);
+    function remove(
+        string memory version,
+        address vault,
+        string memory metadata
+    ) public {
+        bool removed = _getVaultSet(msg.sender, version, metadata).remove(
+            vault
+        );
         if (removed) {
-            emit RemoveVault(msg.sender, version, vault);
+            emit RemoveVault(msg.sender, version, metadata, vault);
         }
     }
 
@@ -109,41 +209,65 @@ contract BadgerRegistry {
     function promote(
         string memory version,
         address vault,
-        VaultStatus status
+        VaultStatus status,
+        string memory metadata
     ) public {
         require(
-            msg.sender == governance || msg.sender == devGovernance,
+            msg.sender == governance ||
+                msg.sender == devGovernance ||
+                isStrategist[msg.sender],
             "!gov"
         );
 
+        if (isStrategist[msg.sender]) {
+            bytes32 parameters = keccak256(abi.encode(version, vault, status));
+            promoteConfirmations[parameters] += 1;
+            if (promoteConfirmations[parameters] < multiSigThreshold) {
+                return;
+            }
+            promoteConfirmations[parameters] = 0;
+        }
+
+        _promote(version, vault, status, metadata);
+    }
+
+    function _promote(
+        string memory version,
+        address vault,
+        VaultStatus status,
+        string memory metadata
+    ) internal {
         VaultStatus actualStatus = status;
         if (msg.sender == devGovernance) {
             actualStatus = VaultStatus.experimental;
         }
 
-        bool added = productionVaults[version][actualStatus].add(vault);
+        bool added = _getProductionVaultSet(version, actualStatus, metadata)
+            .add(vault);
 
         // If added remove from old and emit event
         if (added) {
             // also remove from old prod
-            if (uint256(actualStatus) == 2) {
-                // Remove from prev2
-                productionVaults[version][VaultStatus(0)].remove(vault);
-                productionVaults[version][VaultStatus(1)].remove(vault);
-            }
-            if (uint256(actualStatus) == 1) {
-                // Remove from prev1
-                productionVaults[version][VaultStatus(0)].remove(vault);
+            for (uint256 i = 0; i < uint256(actualStatus); i++) {
+                _getProductionVaultSet(version, VaultStatus(i), metadata)
+                    .remove(vault);
             }
 
-            emit PromoteVault(msg.sender, version, vault, actualStatus);
+            emit PromoteVault(
+                msg.sender,
+                version,
+                metadata,
+                vault,
+                actualStatus
+            );
         }
     }
 
     function demote(
         string memory version,
         address vault,
-        VaultStatus status
+        VaultStatus status,
+        string memory metadata
     ) public {
         require(
             msg.sender == governance || msg.sender == devGovernance,
@@ -155,21 +279,24 @@ contract BadgerRegistry {
             actualStatus = VaultStatus.experimental;
         }
 
-        bool removed = productionVaults[version][actualStatus].remove(vault);
+        bool removed = _getProductionVaultSet(version, actualStatus, metadata)
+            .remove(vault);
 
         if (removed) {
-            emit DemoteVault(msg.sender, version, vault, status);
+            emit DemoteVault(msg.sender, version, metadata, vault, status);
         }
     }
 
-    /** KEY Management */
+    /* KEY Management */
 
     //@dev Set the value of a key to a specific address
     //@notice e.g. controller = 0x123123
     function set(string memory key, address at) public {
         require(msg.sender == governance, "!gov");
+        require(bytes(key).length <= 32);
         _addKey(key);
         addresses[key] = at;
+        address2Keys[at].add(key.toBytes32());
         emit Set(key, at);
     }
 
@@ -179,7 +306,9 @@ contract BadgerRegistry {
         for (uint256 x = 0; x < keys.length; x++) {
             // Compare strings via their hash because solidity
             if (keccak256(bytes(key)) == keccak256(bytes(keys[x]))) {
+                address target = addresses[key];
                 delete addresses[key];
+                address2Keys[target].remove(key.toBytes32());
                 keys[x] = keys[keys.length - 1];
                 keys.pop();
                 emit DeleteKey(key);
@@ -191,6 +320,17 @@ contract BadgerRegistry {
     //@dev Retrieve the value of a key
     function get(string memory key) public view returns (address) {
         return addresses[key];
+    }
+
+    //@dev Retrieve the keys of an address
+    function getKeys(address target) public view returns (string[] memory) {
+        EnumerableSet.Bytes32Set storage keySet = address2Keys[target];
+        uint256 length = keySet.length();
+        string[] memory list = new string[](length);
+        for (uint256 i = 0; i < length; i++) {
+            list[i] = string(abi.encodePacked(keySet.at(i)));
+        }
+        return list;
     }
 
     //@dev Get keys count
@@ -216,17 +356,46 @@ contract BadgerRegistry {
         emit AddKey(key);
     }
 
+    function _getVaultSet(
+        address author,
+        string memory version,
+        string memory metadata
+    ) internal view returns (EnumerableSet.AddressSet storage) {
+        if (bytes(metadata).length == 0) {
+            return vaults[author][version];
+        } else {
+            return vaultsWithMetadata[author][version][metadata];
+        }
+    }
+
+    function _getProductionVaultSet(
+        string memory version,
+        VaultStatus status,
+        string memory metadata
+    ) internal view returns (EnumerableSet.AddressSet storage) {
+        if (bytes(metadata).length == 0) {
+            return productionVaults[version][status];
+        } else {
+            return productionVaultsWithMetadata[version][metadata][status];
+        }
+    }
+
     //@dev Retrieve a list of all Vault Addresses from the given author
-    function getVaults(string memory version, address author)
-        public
-        view
-        returns (address[] memory)
-    {
-        uint256 length = vaults[author][version].length();
+    function getVaults(
+        string memory version,
+        address author,
+        string memory metadata
+    ) public view returns (address[] memory) {
+        EnumerableSet.AddressSet storage vaultSet = _getVaultSet(
+            author,
+            version,
+            metadata
+        );
+        uint256 length = vaultSet.length();
 
         address[] memory list = new address[](length);
         for (uint256 i = 0; i < length; i++) {
-            list[i] = vaults[author][version].at(i);
+            list[i] = vaultSet.at(i);
         }
         return list;
     }
@@ -234,37 +403,55 @@ contract BadgerRegistry {
     //@dev Retrieve a list of all Vaults that are in production, based on Version and Status
     function getFilteredProductionVaults(
         string memory version,
-        VaultStatus status
+        VaultStatus status,
+        string memory metadata
     ) public view returns (address[] memory) {
-        uint256 length = productionVaults[version][status].length();
+        EnumerableSet.AddressSet storage vaultSet = _getProductionVaultSet(
+            version,
+            status,
+            metadata
+        );
+        uint256 length = vaultSet.length();
 
         address[] memory list = new address[](length);
         for (uint256 i = 0; i < length; i++) {
-            list[i] = productionVaults[version][status].at(i);
+            list[i] = vaultSet.at(i);
         }
         return list;
     }
 
     function getProductionVaults() public view returns (VaultData[] memory) {
         uint256 versionsCount = versions.length;
+        uint256 metadataCount = productionMetadatas.length;
+        uint256 countsMultiply = versionsCount * metadataCount;
 
-        VaultData[] memory data = new VaultData[](versionsCount * 3);
+        VaultData[] memory data = new VaultData[](
+            versionsCount * metadataCount * statusCount
+        );
 
         for (uint256 x = 0; x < versionsCount; x++) {
-            for (uint256 y = 0; y < 3; y++) {
-                uint256 length = productionVaults[versions[x]][VaultStatus(y)]
-                    .length();
-                address[] memory list = new address[](length);
-                for (uint256 z = 0; z < length; z++) {
-                    list[z] = productionVaults[versions[x]][VaultStatus(y)].at(
-                        z
-                    );
+            for (uint256 y = 0; y < metadataCount; y++) {
+                for (uint256 z = 0; z < statusCount; z++) {
+                    EnumerableSet.AddressSet
+                        storage vaultSet = _getProductionVaultSet(
+                            versions[x],
+                            VaultStatus(z),
+                            productionMetadatas[y]
+                        );
+                    uint256 length = vaultSet.length();
+                    address[] memory list = new address[](length);
+                    for (uint256 i = 0; i < length; i++) {
+                        list[i] = vaultSet.at(i);
+                    }
+                    data[
+                        x + y * versionsCount + z * countsMultiply
+                    ] = VaultData({
+                        version: versions[x],
+                        status: VaultStatus(z),
+                        list: list,
+                        metadata: productionMetadatas[y]
+                    });
                 }
-                data[x * (versionsCount - 1) + y * 2] = VaultData({
-                    version: versions[x],
-                    status: VaultStatus(y),
-                    list: list
-                });
             }
         }
 
