@@ -29,6 +29,8 @@ contract BadgerRegistry {
     //@dev Given an Author Address, and Token, Return the Vault
     mapping(address => mapping(string => EnumerableSet.AddressSet))
         private vaults;
+    mapping(address => string) private metadata;
+
     mapping(string => address) public addresses;
 
     //@dev Given Version and VaultStatus, returns the list of Vaults in production
@@ -110,8 +112,13 @@ contract BadgerRegistry {
     }
 
     //@dev Anyone can add a vault to here, it will be indexed by their address
-    function add(string memory version, address vault) public {
+    function add(
+        string memory version,
+        address vault,
+        string memory _metadata
+    ) public {
         bool added = vaults[msg.sender][version].add(vault);
+        metadata[vault] = _metadata;
         if (added) {
             emit NewVault(msg.sender, version, vault);
         }
@@ -236,29 +243,40 @@ contract BadgerRegistry {
     function getVaults(string memory version, address author)
         public
         view
-        returns (address[] memory)
+        returns (address[] memory vaultAddresses, string[] memory vaultMetadata)
     {
         uint256 length = vaults[author][version].length();
 
-        address[] memory list = new address[](length);
+        vaultAddresses = new address[](length);
+        vaultMetadata = new string[](length);
+
         for (uint256 i = 0; i < length; i++) {
-            list[i] = vaults[author][version].at(i);
+            address currentVault = vaults[author][version].at(i);
+            vaultAddresses[i] = currentVault;
+            vaultMetadata[i] = metadata[currentVault];
         }
-        return list;
     }
 
     //@dev Retrieve a list of all Vaults that are in production, based on Version and Status
     function getFilteredProductionVaults(
         string memory version,
         VaultStatus status
-    ) public view returns (address[] memory) {
+    )
+        public
+        view
+        returns (address[] memory vaultAddresses, string[] memory vaultMetadata)
+    {
         uint256 length = productionVaults[version][status].length();
+
+        vaultAddresses = new address[](length);
+        vaultMetadata = new string[](length);
 
         address[] memory list = new address[](length);
         for (uint256 i = 0; i < length; i++) {
-            list[i] = productionVaults[version][status].at(i);
+            address currentVault = productionVaults[version][status].at(i);
+            vaultAddresses[i] = productionVaults[version][status].at(i);
+            vaultMetadata[i] = metadata[currentVault];
         }
-        return list;
     }
 
     function getProductionVaults() public view returns (VaultData[] memory) {
