@@ -23,7 +23,7 @@ contract BadgerRegistry {
     //@dev Multisig. Vaults from here are considered Production ready
     address public governance;
     address public devGovernance; //@notice an address with some powers to make things easier in development
- 
+    address public strategistGuild;
 
     //@dev Given an Author Address, and Token, Return the Vault
     mapping(address => mapping(string => EnumerableSet.AddressSet))
@@ -58,6 +58,21 @@ contract BadgerRegistry {
     event DeleteKey(string key);
     event AddVersion(string version);
 
+    modifier onlyGovernance() {
+        require(msg.sender == governance, "!gov");
+        _;
+    }
+
+    modifier onlyPromoter() {
+        require(
+            msg.sender == governance ||
+                msg.sender == strategistGuild ||
+                msg.sender == devGovernance,
+            "you are not allowed to promote"
+        );
+        _;
+    }
+
     function initialize(address newGovernance) public {
         require(governance == address(0));
         governance = newGovernance;
@@ -80,9 +95,13 @@ contract BadgerRegistry {
         devGovernance = newDev;
     }
 
+    function setStrategistGuild(address newStrategist) public onlyGovernance {
+        strategistGuild = newStrategist;
+    }
+
     //@dev Utility function to add Versions for Vaults,
     //@notice No guarantee that it will be properly used
-    function addVersions(string memory version) public {
+    function addVersions(string memory version) public onlyGovernance {
         require(msg.sender == governance, "!gov");
         versions.push(version);
 
@@ -111,12 +130,7 @@ contract BadgerRegistry {
         string memory version,
         address vault,
         VaultStatus status
-    ) public {
-        require(
-            msg.sender == governance || msg.sender == devGovernance,
-            "!gov"
-        );
-
+    ) public onlyPromoter {
         VaultStatus actualStatus = status;
         if (msg.sender == devGovernance) {
             actualStatus = VaultStatus.experimental;
@@ -145,12 +159,7 @@ contract BadgerRegistry {
         string memory version,
         address vault,
         VaultStatus status
-    ) public {
-        require(
-            msg.sender == governance || msg.sender == devGovernance,
-            "!gov"
-        );
-
+    ) public onlyPromoter {
         VaultStatus actualStatus = status;
         if (msg.sender == devGovernance) {
             actualStatus = VaultStatus.experimental;
@@ -167,16 +176,14 @@ contract BadgerRegistry {
 
     //@dev Set the value of a key to a specific address
     //@notice e.g. controller = 0x123123
-    function set(string memory key, address at) public {
-        require(msg.sender == governance, "!gov");
+    function set(string memory key, address at) public onlyGovernance {
         _addKey(key);
         addresses[key] = at;
         emit Set(key, at);
     }
 
     //@dev Delete a key
-    function deleteKey(string memory key) public {
-        require(msg.sender == governance, "!gov");
+    function deleteKey(string memory key) public onlyGovernance {
         for (uint256 x = 0; x < keys.length; x++) {
             // Compare strings via their hash because solidity
             if (keccak256(bytes(key)) == keccak256(bytes(keys[x]))) {

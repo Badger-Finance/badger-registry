@@ -46,7 +46,7 @@ def test_vault_promotion_step_prod(registry, vault, rando, gov):
 
 
 
-def test_vault_promotion_permissions(registry, vault, rando, gov, devGov):
+def test_vault_promotion_permissions(registry, vault,vault_one, rando, gov, devGov,strategistGuild):
   ## If devGov promotes, the only step is 0
   # 
   # If gov promotes, it goes to any step
@@ -60,9 +60,15 @@ def test_vault_promotion_permissions(registry, vault, rando, gov, devGov):
   assert registry.getFilteredProductionVaults("v1", 0) == [vault]
   assert registry.getFilteredProductionVaults("v1", 2) == []
 
-  ## Gov can promote to anything
-  registry.promote("v1", vault, 2, {"from": gov})  
+  ## strategistGuild can promote to anything
+  registry.promote("v1", vault, 2, {"from": strategistGuild})  
   ## And promoting cleans up lower ranks
   assert registry.getFilteredProductionVaults("v1", 0) == []
   assert registry.getFilteredProductionVaults("v1", 2) == [vault]
+
+## Gov can promote to anything
+  registry.promote("v1", vault_one, 2, {"from": gov})  
+  ## And promoting cleans up lower ranks
+  assert registry.getFilteredProductionVaults("v1", 0) == []
+  assert registry.getFilteredProductionVaults("v1", 2) == [vault,vault_one]
 

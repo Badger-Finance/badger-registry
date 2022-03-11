@@ -11,6 +11,10 @@ def user(accounts):
   return accounts[2]
 
 @pytest.fixture
+def strategistGuild(accounts):
+  return accounts[7]
+
+@pytest.fixture
 def gov(accounts):
   return accounts[0]
 
@@ -23,6 +27,7 @@ def registry(gov, BadgerRegistry):
 @pytest.fixture
 def devGov(accounts, registry, gov):
   registry.setDev(accounts[3], {"from": gov})
+  registry.setStrategistGuild(accounts[7], {"from": gov})
   
   return accounts[3]
   
