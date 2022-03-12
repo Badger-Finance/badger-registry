@@ -29,6 +29,8 @@ contract BadgerRegistry {
     string metadata;
   }
 
+  uint public constant VAULT_STATUS_LENGTH = 3;
+
   struct VaultData {
     string version;
     VaultStatus status;
