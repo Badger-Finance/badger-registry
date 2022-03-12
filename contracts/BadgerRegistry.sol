@@ -228,9 +228,12 @@ contract BadgerRegistry {
   }
 
   //@dev Delete a key
-  function deleteKey(string memory key) public {
+  function deleteKey(string memory key) external {
     require(msg.sender == governance, "!gov");
+    _deleteKey(key);
+  }
 
+  function _deleteKey(string memory key) private {
     address at = addresses[key];
     delete keyByAddress[at];
 
@@ -245,6 +248,16 @@ contract BadgerRegistry {
       }
     }
 
+  }
+
+  //@dev Delete keys
+  function deleteKeys(string[] memory keys) external {
+    require(msg.sender == governance, "!gov");
+
+    uint256 length = keys.length;
+    for (uint256 x = 0; x < length; ++x) {
+      _deleteKey(keys[x]);
+    }
   }
 
   //@dev Retrieve the value of a key
