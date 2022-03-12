@@ -18,7 +18,7 @@ def test_vault_promotion_permissions(registry, vault, vault_one, vault_two, vaul
   assert registry.getFilteredProductionVaults("v1", 0) == [[vault_one, "v1", "DCA-BTC-CVX"]]
   assert registry.getFilteredProductionVaults("v2", 1) == [[vault_two, "v2", "DCA-ETH-CVX"]]
   assert registry.getFilteredProductionVaults("v1", 2) == [[vault_three, "v1", "DCA-BTC-CVX"]]
-  assert registry.getFilteredProductionVaults("v1", 3) == [[vault_four, "v2", "DCA-MATIC-CVX"]]
+  assert registry.getFilteredProductionVaults("v2", 3) == [[vault_four, "v2", "DCA-MATIC-CVX"]]
 
   result = registry.getProductionVaults()
 
@@ -29,4 +29,4 @@ def test_vault_promotion_permissions(registry, vault, vault_one, vault_two, vaul
   assert result[4] == ("v2", 0, [])
   assert result[5] == ("v2", 1, [[vault_two, "DCA-ETH-CVX"]])
   assert result[6] == ("v2", 2, [])
-  assert result[7] == ("v2", 3, [[vault_four, "v2", "DCA-MATIC-CVX"]])
+  assert result[7] == ("v2", 3, [[vault_four, "DCA-MATIC-CVX"]])
