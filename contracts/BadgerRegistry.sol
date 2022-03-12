@@ -11,6 +11,8 @@ contract BadgerRegistry {
   //@dev is the vault at the experimental, guarded or open stage? Only for Prod Vaults
   enum VaultStatus { experimental, guarded, open }
 
+  uint public constant VAULT_STATUS_LENGTH = 3;
+
   struct VaultData {
     string version;
     VaultStatus status;
@@ -211,16 +213,16 @@ contract BadgerRegistry {
   function getProductionVaults() public view returns (VaultData[] memory) {
     uint256 versionsCount = versions.length;
 
-    VaultData[] memory data = new VaultData[](versionsCount * 3);
+    VaultData[] memory data = new VaultData[](versionsCount * VAULT_STATUS_LENGTH);
 
     for(uint256 x = 0; x < versionsCount; x++) {
-      for(uint256 y = 0; y < 3; y++) {
+      for(uint256 y = 0; y < VAULT_STATUS_LENGTH; y++) {
         uint256 length = productionVaults[versions[x]][VaultStatus(y)].length();
         address[] memory list = new address[](length);
         for(uint256 z = 0; z < length; z++){
           list[z] = productionVaults[versions[x]][VaultStatus(y)].at(z);
         }
-        data[x * (versionsCount - 1) + y * 2] = VaultData({
+        data[x * VAULT_STATUS_LENGTH + y] = VaultData({
           version: versions[x],
           status: VaultStatus(y),
           list: list
