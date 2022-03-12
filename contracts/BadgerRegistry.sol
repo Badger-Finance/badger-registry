@@ -169,9 +169,9 @@ contract BadgerRegistry {
     // If addedToVersionStatusSet remove from old and emit event
     if (addedToVersionStatusSet) {
       // also remove from old prod
-      if (actualStatus != VaultStatus(0)) {
-        for(uint256 preStatus = uint256(actualStatus) - 1; preStatus >= 0; --preStatus) {
-          productionVaults[version][VaultStatus(actualStatus)].remove(vault);
+      if (uint256(actualStatus) > 0) {
+        for(uint256 status_ = uint256(actualStatus); status_ > 0; --status_) {
+          productionVaults[version][VaultStatus(status_ - 1)].remove(vault);
         }
       }
     }
@@ -180,9 +180,9 @@ contract BadgerRegistry {
     // If addedToMetadataStatusSet remove from old and emit event
     if (addedToMetadataStatusSet) {
       // also remove from old prod
-      if (actualStatus != VaultStatus(0)) {
-        for(uint256 preStatus = uint256(actualStatus) - 1; preStatus >= 0; --preStatus) {
-          productionVaultsByMetadataAndStatus[metadata][VaultStatus(actualStatus)].remove(vault);
+      if (uint256(actualStatus) > 0) {
+        for(uint256 status_ = uint256(actualStatus); status_ > 0; --status_) {
+          productionVaultsByMetadataAndStatus[metadata][VaultStatus(status_ - 1)].remove(vault);
         }
       }
     }
