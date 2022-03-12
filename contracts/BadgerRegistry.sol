@@ -255,7 +255,7 @@ contract BadgerRegistry {
 
     uint256 length = _keys.length;
     for (uint256 x = 0; x < length; ++x) {
-      _deleteKey(keys[x]);
+      _deleteKey(_keys[x]);
     }
   }
 
