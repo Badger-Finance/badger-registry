@@ -33,6 +33,9 @@ def test_vault_promotion_by_strategist_guild(registry, vault, strategistGuild):
     registry.promote(vault, "v1", "name=BTC-CVX,protocol=Badger,behavior=DCA", 1, {"from": strategistGuild})
     assert registry.getFilteredProductionVaults("v1", 1) == [[vault, "v1", "1", "name=BTC-CVX,protocol=Badger,behavior=DCA"]]
 
+def test_vault_promotion_by_strategist_guild(registry, vault, rando, gov, strategistGuild):
+    registry.promote("v1", "DCA-BTC-CVX", vault, 0, {"from": strategistGuild})
+    assert registry.getFilteredProductionVaults("v1", 0) == [[vault, "v1", "DCA-BTC-CVX"]]
 
 def test_vault_promotion_step_staging(registry, vault, rando, gov):
     registry.promote(vault, "v1", "name=BTC-CVX,protocol=Badger,behavior=DCA", 1, {"from": gov})
