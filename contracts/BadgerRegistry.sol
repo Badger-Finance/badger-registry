@@ -29,7 +29,7 @@ contract BadgerRegistry {
     string metadata;
   }
 
-  uint public constant VAULT_STATUS_LENGTH = 3;
+  uint public constant VAULT_STATUS_LENGTH = 4;
 
   struct VaultInfo {
     address vault;
@@ -219,14 +219,10 @@ contract BadgerRegistry {
     // If addedToMetadataStatusSet remove from old and emit event
     if (addedToMetadataStatusSet) {
       // also remove from old prod
-      if(uint256(actualStatus) == 2){
-        // Remove from prev2
-        productionVaultsByMetadataAndStatus[metadata][VaultStatus(0)].remove(vault);
-        productionVaultsByMetadataAndStatus[metadata][VaultStatus(1)].remove(vault);
-      }
-      if(uint256(actualStatus) == 1){
-        // Remove from prev1
-        productionVaultsByMetadataAndStatus[metadata][VaultStatus(0)].remove(vault);
+      if (actualStatus != VaultStatus(0)) {
+        for(uint256 preStatus = uint256(actualStatus) - 1; preStatus >= 0; --preStatus) {
+          productionVaultsByMetadataAndStatus[metadata][VaultStatus(actualStatus)].remove(vault);
+        }
       }
     }
 
