@@ -22,20 +22,27 @@ contract BadgerRegistry {
     string[] metadata;
   }
 
-  //@dev Multisig. Vaults from here are considered Production ready
+  /// @dev Multisig. Vaults from here are considered Production ready
   address public governance;
-  address public devGovernance; //@notice an address with some powers to make things easier in development
+  /// @notice an address with some powers to make things easier in development
+  address public devGovernance;
+  /// @dev strategistGuild is entitled to do the entire promotion process
   address public strategistGuild;
 
-  //@dev Given an Author Address, and Token, Return the Vault
+  /// @dev Given an Author Address, and Token, Return the Vault
   mapping(address => mapping(string => EnumerableSet.AddressSet)) private vaults;
+  /// @dev Stores the metadata of a vault
   mapping(address => string) private metadata;
 
+  /// @dev Given an Key return the vault
   mapping(string => address) public addresses;
+
+  /// @dev Given an vault it returns the key
   mapping(address => string) public keys;
+  /// @dev counts all keys that are stored in the keys mapping
   uint256 public keysCount;
 
-  //@dev Given Version and VaultStatus, returns the list of Vaults in production
+  /// @dev Given Version and VaultStatus, returns the list of Vaults in production
   mapping(string => mapping(VaultStatus => EnumerableSet.AddressSet)) private productionVaults;
 
   // Known constants you can use
@@ -56,6 +63,11 @@ contract BadgerRegistry {
     _;
   }
 
+  modifier onlyDev() {
+    require(msg.sender == governance || msg.sender == devGovernance, "!gov");
+    _;
+  }
+
   modifier onlyPromoter() {
     require(
       msg.sender == governance || msg.sender == strategistGuild || msg.sender == devGovernance,
@@ -70,13 +82,11 @@ contract BadgerRegistry {
     versions.push("v2"); //For v2
   }
 
-  function setGovernance(address _newGov) public {
-    require(msg.sender == governance, "!gov");
+  function setGovernance(address _newGov) public onlyGovernance {
     governance = _newGov;
   }
 
-  function setDev(address newDev) public {
-    require(msg.sender == governance || msg.sender == devGovernance, "!gov");
+  function setDev(address newDev) public onlyDev {
     devGovernance = newDev;
   }
 
