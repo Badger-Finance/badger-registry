@@ -13,10 +13,21 @@ contract BadgerRegistry {
 
   uint public constant VAULT_STATUS_LENGTH = 3;
 
+  struct VaultInfo {
+    address vault;
+    string version;
+    string metadata;
+  }
+
+  struct VaultMetadata {
+    address vault;
+    string metadata;
+  }
+
   struct VaultData {
     string version;
     VaultStatus status;
-    address[] list;
+    VaultMetadata[] list;
   }
 
   //@dev Multisig. Vaults from here are considered Production ready
@@ -30,14 +41,20 @@ contract BadgerRegistry {
   //@dev Given Version and VaultStatus, returns the list of Vaults in production
   mapping(string => mapping(VaultStatus => EnumerableSet.AddressSet)) private productionVaults;
 
+  //@dev Given Metadata and VaultStatus, returns the list of Vaults in production
+  mapping(string => mapping(VaultStatus => EnumerableSet.AddressSet)) private productionVaultsByMetadataAndStatus;
+
+  //@dev Given Vault Address, returns the VaultInfo in production
+  mapping(address => VaultInfo) public productionVaultInfoByVault;
+
   // Known constants you can use
   string[] public keys; //@notice, you don't have a guarantee of the key being there, it's just a utility
   string[] public versions; //@notice, you don't have a guarantee of the key being there, it's just a utility
 
   event NewVault(address author, string version, address vault);
   event RemoveVault(address author, string version, address vault);
-  event PromoteVault(address author, string version, address vault, VaultStatus status);
-  event DemoteVault(address author, string version, address vault, VaultStatus status);
+  event PromoteVault(address author, string version, string metadata, address vault, VaultStatus status);
+  event DemoteVault(address author, string version, string metadata, address vault, VaultStatus status);
 
   event Set(string key, address at);
   event AddKey(string key);
@@ -91,7 +108,7 @@ contract BadgerRegistry {
 
   //@dev Promote a vault to Production
   //@dev Promote just means indexed by the Governance Address
-  function promote(string memory version, address vault, VaultStatus status) public {
+  function promote(string memory version, string memory metadata, address vault, VaultStatus status) public {
     require(msg.sender == governance || msg.sender == devGovernance, "!gov");
 
     VaultStatus actualStatus = status;
@@ -99,10 +116,26 @@ contract BadgerRegistry {
       actualStatus = VaultStatus.experimental;
     }
 
-    bool added = productionVaults[version][actualStatus].add(vault);
+    VaultInfo memory existedVaultInfo = productionVaultInfoByVault[vault];
+    if (existedVaultInfo.vault != address(0)) {
+      require(
+        // Compare strings via their hash because solidity
+        vault == existedVaultInfo.vault
+          && keccak256(bytes(version)) == keccak256(bytes(existedVaultInfo.version))
+          && keccak256(bytes(metadata)) == keccak256(bytes(existedVaultInfo.metadata)),
+        "BadgerRegistry: vault info changed. Please demote before change vault info"
+      );
+    } else {
+      productionVaultInfoByVault[vault] = VaultInfo({
+        vault: vault,
+        version: version,
+        metadata: metadata
+      });
+    }
 
-    // If added remove from old and emit event
-    if (added) {
+    bool addedToVersionStatusSet = productionVaults[version][actualStatus].add(vault);
+    // If addedToVersionStatusSet remove from old and emit event
+    if (addedToVersionStatusSet) {
       // also remove from old prod
       if(uint256(actualStatus) == 2){
         // Remove from prev2
@@ -113,12 +146,29 @@ contract BadgerRegistry {
         // Remove from prev1
         productionVaults[version][VaultStatus(0)].remove(vault);
       }
+    }
 
-      emit PromoteVault(msg.sender, version, vault, actualStatus);
+    bool addedToMetadataStatusSet = productionVaultsByMetadataAndStatus[metadata][actualStatus].add(vault);
+    // If addedToMetadataStatusSet remove from old and emit event
+    if (addedToMetadataStatusSet) {
+      // also remove from old prod
+      if(uint256(actualStatus) == 2){
+        // Remove from prev2
+        productionVaultsByMetadataAndStatus[metadata][VaultStatus(0)].remove(vault);
+        productionVaultsByMetadataAndStatus[metadata][VaultStatus(1)].remove(vault);
+      }
+      if(uint256(actualStatus) == 1){
+        // Remove from prev1
+        productionVaultsByMetadataAndStatus[metadata][VaultStatus(0)].remove(vault);
+      }
+    }
+
+    if (addedToVersionStatusSet || addedToMetadataStatusSet) {
+      emit PromoteVault(msg.sender, version, metadata, vault, actualStatus);
     }
   }
 
-  function demote(string memory version, address vault, VaultStatus status) public {
+  function demote(string memory version, string memory metadata, address vault, VaultStatus status) public {
     require(msg.sender == governance || msg.sender == devGovernance, "!gov");
 
     VaultStatus actualStatus = status;
@@ -126,11 +176,11 @@ contract BadgerRegistry {
       actualStatus = VaultStatus.experimental;
     }
 
-    bool removed = productionVaults[version][actualStatus].remove(vault);
+    productionVaults[version][actualStatus].remove(vault);
+    productionVaultsByMetadataAndStatus[metadata][actualStatus].remove(vault);
+    delete productionVaultInfoByVault[vault];
 
-    if (removed) {
-      emit DemoteVault(msg.sender, version, vault, status);
-    }
+    emit DemoteVault(msg.sender, version, metadata, vault, status);
   }
 
   /** KEY Management */
@@ -200,12 +250,23 @@ contract BadgerRegistry {
   }
 
   //@dev Retrieve a list of all Vaults that are in production, based on Version and Status
-  function getFilteredProductionVaults(string memory version, VaultStatus status) public view returns (address[] memory) {
+  function getFilteredProductionVaults(string memory version, VaultStatus status) public view returns (VaultInfo[] memory) {
     uint256 length = productionVaults[version][status].length();
 
-    address[] memory list = new address[](length);
+    VaultInfo[] memory list = new VaultInfo[](length);
     for (uint256 i = 0; i < length; i++) {
-      list[i] = productionVaults[version][status].at(i);
+      list[i] = productionVaultInfoByVault[productionVaults[version][status].at(i)];
+    }
+    return list;
+  }
+
+  //@dev Retrieve a list of all Vaults that are in production, based on Metadata and Status
+  function getFilteredProductionVaultsByMetadataAndStatus(string memory metadata, VaultStatus status) public view returns (VaultInfo[] memory) {
+    uint256 length = productionVaultsByMetadataAndStatus[metadata][status].length();
+
+    VaultInfo[] memory list = new VaultInfo[](length);
+    for (uint256 i = 0; i < length; i++) {
+      list[i] = productionVaultInfoByVault[productionVaultsByMetadataAndStatus[metadata][status].at(i)];
     }
     return list;
   }
@@ -218,9 +279,13 @@ contract BadgerRegistry {
     for(uint256 x = 0; x < versionsCount; x++) {
       for(uint256 y = 0; y < VAULT_STATUS_LENGTH; y++) {
         uint256 length = productionVaults[versions[x]][VaultStatus(y)].length();
-        address[] memory list = new address[](length);
+        VaultMetadata[] memory list = new VaultMetadata[](length);
         for(uint256 z = 0; z < length; z++){
-          list[z] = productionVaults[versions[x]][VaultStatus(y)].at(z);
+          VaultInfo storage vaultInfo = productionVaultInfoByVault[productionVaults[versions[x]][VaultStatus(y)].at(z)];
+          list[z] = VaultMetadata({
+            vault: vaultInfo.vault,
+            metadata: vaultInfo.metadata
+          });
         }
         data[x * VAULT_STATUS_LENGTH + y] = VaultData({
           version: versions[x],
