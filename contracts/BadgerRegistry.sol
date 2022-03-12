@@ -33,6 +33,7 @@ contract BadgerRegistry {
   //@dev Multisig. Vaults from here are considered Production ready
   address public governance;
   address public devGovernance; //@notice an address with some powers to make things easier in development
+  address public strategistGuild;
 
   //@dev Given an Author Address, and Version, Return the Vault
   mapping(address => mapping(string => EnumerableSet.AddressSet)) private vaults;
@@ -69,9 +70,10 @@ contract BadgerRegistry {
   event DeleteKey(string key);
   event AddVersion(string version);
 
-  function initialize(address newGovernance) public {
+  function initialize(address newGovernance, address newStrategistGuild) public {
     require(governance == address(0));
     governance = newGovernance;
+    strategistGuild = newStrategistGuild;
     devGovernance = address(0);
 
     versions.push("v1"); //For v1
@@ -86,6 +88,11 @@ contract BadgerRegistry {
   function setDev(address newDev) public {
     require(msg.sender == governance || msg.sender == devGovernance, "!gov");
     devGovernance = newDev;
+  }
+
+  function setStrategistGuild(address newStrategistGuild) public {
+    require(msg.sender == governance, "!gov");
+    strategistGuild = newStrategistGuild;
   }
 
   //@dev Utility function to add Versions for Vaults,
@@ -141,10 +148,10 @@ contract BadgerRegistry {
   //@dev Promote a vault to Production
   //@dev Promote just means indexed by the Governance Address
   function promote(string memory version, string memory metadata, address vault, VaultStatus status) public {
-    require(msg.sender == governance || msg.sender == devGovernance, "!gov");
+    require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == devGovernance, "!auth");
 
     VaultStatus actualStatus = status;
-    if(msg.sender == devGovernance) {
+    if (msg.sender == devGovernance) {
       actualStatus = VaultStatus.experimental;
     }
 
@@ -193,10 +200,10 @@ contract BadgerRegistry {
   }
 
   function demote(string memory version, string memory metadata, address vault, VaultStatus status) public {
-    require(msg.sender == governance || msg.sender == devGovernance, "!gov");
+    require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == devGovernance, "!auth");
 
     VaultStatus actualStatus = status;
-    if(msg.sender == devGovernance) {
+    if (msg.sender == devGovernance) {
       actualStatus = VaultStatus.experimental;
     }
 
