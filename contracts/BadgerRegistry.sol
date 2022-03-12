@@ -34,8 +34,15 @@ contract BadgerRegistry {
   address public governance;
   address public devGovernance; //@notice an address with some powers to make things easier in development
 
-  //@dev Given an Author Address, and Token, Return the Vault
+  //@dev Given an Author Address, and Version, Return the Vault
   mapping(address => mapping(string => EnumerableSet.AddressSet)) private vaults;
+
+  //@dev Given an Author Address, and Metadata, Return the Vault
+  mapping(address => mapping(string => EnumerableSet.AddressSet)) private vaultsByAuthorAndMetadata;
+
+  //@dev Given an Author Address, and Vault Address, Return the VaultInfo
+  mapping(address => mapping(address => VaultInfo)) public vaultInfoByAuthorAndVault;
+
   mapping(string => address) public addresses;
 
   //@dev Given Version and VaultStatus, returns the list of Vaults in production
@@ -51,8 +58,8 @@ contract BadgerRegistry {
   string[] public keys; //@notice, you don't have a guarantee of the key being there, it's just a utility
   string[] public versions; //@notice, you don't have a guarantee of the key being there, it's just a utility
 
-  event NewVault(address author, string version, address vault);
-  event RemoveVault(address author, string version, address vault);
+  event NewVault(address author, string version, string metadata, address vault);
+  event RemoveVault(address author, string version, string metadata, address vault);
   event PromoteVault(address author, string version, string metadata, address vault, VaultStatus status);
   event DemoteVault(address author, string version, string metadata, address vault, VaultStatus status);
 
@@ -91,19 +98,43 @@ contract BadgerRegistry {
 
 
   //@dev Anyone can add a vault to here, it will be indexed by their address
-  function add(string memory version, address vault) public {
-    bool added = vaults[msg.sender][version].add(vault);
-    if (added) {
-      emit NewVault(msg.sender, version, vault);
+  function add(address vault, string memory version, string memory metadata) public {
+    VaultInfo memory existedVaultInfo = vaultInfoByAuthorAndVault[msg.sender][vault];
+    if (existedVaultInfo.vault != address(0)) {
+      require(
+        // Compare strings via their hash because solidity
+        vault == existedVaultInfo.vault
+          && keccak256(bytes(version)) == keccak256(bytes(existedVaultInfo.version))
+          && keccak256(bytes(metadata)) == keccak256(bytes(existedVaultInfo.metadata)),
+        "BadgerRegistry: vault info changed. Please remove before add changed vault info"
+      );
+      // Same vault cannot be added twice (nothing happens)
+      return;
     }
+
+    vaultInfoByAuthorAndVault[msg.sender][vault] = VaultInfo({
+      vault: vault,
+      version: version,
+      metadata: metadata
+    });
+
+    vaults[msg.sender][version].add(vault);
+    vaultsByAuthorAndMetadata[msg.sender][metadata].add(vault);
+    emit NewVault(msg.sender, version, metadata, vault);
   }
 
   //@dev Remove the vault from your index
-  function remove(string memory version, address vault) public {
-    bool removed = vaults[msg.sender][version].remove(vault);
-    if (removed) {
-      emit RemoveVault(msg.sender, version, vault);
-     }
+  function remove(address vault) public {
+    VaultInfo memory existedVaultInfo = vaultInfoByAuthorAndVault[msg.sender][vault];
+    if (existedVaultInfo.vault == address(0)) {
+      return;
+    }
+    delete vaultInfoByAuthorAndVault[msg.sender][vault];
+    bool removedFromVersionSet = vaults[msg.sender][existedVaultInfo.version].remove(vault);
+    bool removedFromMetadataSet = vaultsByAuthorAndMetadata[msg.sender][existedVaultInfo.metadata].remove(vault);
+    if (removedFromVersionSet || removedFromMetadataSet) {
+      emit RemoveVault(msg.sender, existedVaultInfo.version, existedVaultInfo.metadata, vault);
+    }
   }
 
   //@dev Promote a vault to Production
@@ -123,7 +154,7 @@ contract BadgerRegistry {
         vault == existedVaultInfo.vault
           && keccak256(bytes(version)) == keccak256(bytes(existedVaultInfo.version))
           && keccak256(bytes(metadata)) == keccak256(bytes(existedVaultInfo.metadata)),
-        "BadgerRegistry: vault info changed. Please demote before change vault info"
+        "BadgerRegistry: vault info changed. Please demote before promote changed vault info"
       );
     } else {
       productionVaultInfoByVault[vault] = VaultInfo({
@@ -238,13 +269,24 @@ contract BadgerRegistry {
     emit AddKey(key);
   }
 
-  //@dev Retrieve a list of all Vault Addresses from the given author
-  function getVaults(string memory version, address author) public view returns (address[] memory) {
+  //@dev Retrieve a list of all Vaults from the given author and version
+  function getVaults(string memory version, address author) public view returns (VaultInfo[] memory) {
     uint256 length = vaults[author][version].length();
 
-    address[] memory list = new address[](length);
+    VaultInfo[] memory list = new VaultInfo[](length);
     for (uint256 i = 0; i < length; i++) {
-      list[i] = vaults[author][version].at(i);
+      list[i] = vaultInfoByAuthorAndVault[author][vaults[author][version].at(i)];
+    }
+    return list;
+  }
+
+  //@dev Retrieve a list of all Vaults from the given author and metadata
+  function getVaultsByMetadata(string memory metadata, address author) public view returns (VaultInfo[] memory) {
+    uint256 length = vaultsByAuthorAndMetadata[author][metadata].length();
+
+    VaultInfo[] memory list = new VaultInfo[](length);
+    for (uint256 i = 0; i < length; i++) {
+      list[i] = vaultInfoByAuthorAndVault[author][vaultsByAuthorAndMetadata[author][metadata].at(i)];
     }
     return list;
   }

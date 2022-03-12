@@ -5,8 +5,8 @@ from brownie import ZERO_ADDRESS, accounts
 def test_vault_promotion(registry, vault, rando, gov):
 
     # Author adds vault to their list
-    registry.add("v1", vault, {"from": rando})
-    assert registry.getVaults("v1", rando) == [vault]
+    registry.add(vault, "v1", "DCA-BTC-CVX", {"from": rando})
+    assert registry.getVaults("v1", rando) == [[vault, "v1", "DCA-BTC-CVX"]]
 
     # Random user attempts to promote vault and reverts
     with brownie.reverts():
