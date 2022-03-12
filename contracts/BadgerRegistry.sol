@@ -44,6 +44,7 @@ contract BadgerRegistry {
   mapping(address => mapping(address => VaultInfo)) public vaultInfoByAuthorAndVault;
 
   mapping(string => address) public addresses;
+  mapping(address => string) public keyByAddress;
 
   //@dev Given Version and VaultStatus, returns the list of Vaults in production
   mapping(string => mapping(VaultStatus => EnumerableSet.AddressSet)) private productionVaults;
@@ -222,12 +223,17 @@ contract BadgerRegistry {
     require(msg.sender == governance, "!gov");
     _addKey(key);
     addresses[key] = at;
+    keyByAddress[at] = key;
     emit Set(key, at);
   }
 
   //@dev Delete a key
   function deleteKey(string memory key) public {
     require(msg.sender == governance, "!gov");
+
+    address at = addresses[key];
+    delete keyByAddress[at];
+
     for(uint256 x = 0; x < keys.length; x++){
       // Compare strings via their hash because solidity
       if(keccak256(bytes(key)) == keccak256(bytes(keys[x]))) {
