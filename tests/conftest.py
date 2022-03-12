@@ -20,8 +20,7 @@ def gov(accounts):
 
 @pytest.fixture
 def registry(gov, BadgerRegistry):
-    registry = gov.deploy(BadgerRegistry)
-    registry.initialize(gov)
+    registry = gov.deploy(BadgerRegistry,gov)
     yield registry
 
 @pytest.fixture

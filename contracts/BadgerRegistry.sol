@@ -64,11 +64,8 @@ contract BadgerRegistry {
     _;
   }
 
-  function initialize(address newGovernance) public {
-    require(governance == address(0));
+  constructor(address newGovernance) public {
     governance = newGovernance;
-    devGovernance = address(0);
-
     versions.push("v1"); //For v1
     versions.push("v2"); //For v2
   }
