@@ -31,6 +31,17 @@ contract BadgerRegistry {
 
   uint public constant VAULT_STATUS_LENGTH = 3;
 
+  struct VaultInfo {
+    address vault;
+    string version;
+    string metadata;
+  }
+
+  struct VaultMetadata {
+    address vault;
+    string metadata;
+  }
+
   struct VaultData {
     string version;
     VaultStatus status;
@@ -202,9 +213,24 @@ contract BadgerRegistry {
           productionVaults[version][VaultStatus(status_ - 1)].remove(vault);
         }
       }
+    }
+
+    bool addedToMetadataStatusSet = productionVaultsByMetadataAndStatus[metadata][actualStatus].add(vault);
+    // If addedToMetadataStatusSet remove from old and emit event
+    if (addedToMetadataStatusSet) {
+      // also remove from old prod
+      if(uint256(actualStatus) == 2){
+        // Remove from prev2
+        productionVaultsByMetadataAndStatus[metadata][VaultStatus(0)].remove(vault);
+        productionVaultsByMetadataAndStatus[metadata][VaultStatus(1)].remove(vault);
+      }
+      if(uint256(actualStatus) == 1){
+        // Remove from prev1
+        productionVaultsByMetadataAndStatus[metadata][VaultStatus(0)].remove(vault);
+      }
+    }
 
       emit PromoteVault(msg.sender, version, metadata, vault, actualStatus);
-    }
   }
 
   /// @dev Demotes the vault to a lower status
