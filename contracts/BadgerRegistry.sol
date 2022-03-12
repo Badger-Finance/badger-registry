@@ -8,10 +8,10 @@ import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 contract BadgerRegistry {
   using EnumerableSet for EnumerableSet.AddressSet;
 
-  //@dev is the vault at the experimental, guarded or open stage? Only for Prod Vaults
-  enum VaultStatus { experimental, guarded, open }
+  //@dev is the vault at the experimental, guarded, open or deprecated stage? Only for Prod Vaults
+  enum VaultStatus { experimental, guarded, open, deprecated }
 
-  uint public constant VAULT_STATUS_LENGTH = 3;
+  uint public constant VAULT_STATUS_LENGTH = 4;
 
   struct VaultInfo {
     address vault;
@@ -169,14 +169,10 @@ contract BadgerRegistry {
     // If addedToVersionStatusSet remove from old and emit event
     if (addedToVersionStatusSet) {
       // also remove from old prod
-      if(uint256(actualStatus) == 2){
-        // Remove from prev2
-        productionVaults[version][VaultStatus(0)].remove(vault);
-        productionVaults[version][VaultStatus(1)].remove(vault);
-      }
-      if(uint256(actualStatus) == 1){
-        // Remove from prev1
-        productionVaults[version][VaultStatus(0)].remove(vault);
+      if (actualStatus != VaultStatus(0)) {
+        for(uint256 preStatus = uint256(actualStatus) - 1; preStatus >= 0; --preStatus) {
+          productionVaults[version][VaultStatus(actualStatus)].remove(vault);
+        }
       }
     }
 
@@ -184,14 +180,10 @@ contract BadgerRegistry {
     // If addedToMetadataStatusSet remove from old and emit event
     if (addedToMetadataStatusSet) {
       // also remove from old prod
-      if(uint256(actualStatus) == 2){
-        // Remove from prev2
-        productionVaultsByMetadataAndStatus[metadata][VaultStatus(0)].remove(vault);
-        productionVaultsByMetadataAndStatus[metadata][VaultStatus(1)].remove(vault);
-      }
-      if(uint256(actualStatus) == 1){
-        // Remove from prev1
-        productionVaultsByMetadataAndStatus[metadata][VaultStatus(0)].remove(vault);
+      if (actualStatus != VaultStatus(0)) {
+        for(uint256 preStatus = uint256(actualStatus) - 1; preStatus >= 0; --preStatus) {
+          productionVaultsByMetadataAndStatus[metadata][VaultStatus(actualStatus)].remove(vault);
+        }
       }
     }
 
