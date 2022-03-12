@@ -46,9 +46,9 @@ contract BadgerRegistry {
   event PromoteVault(address author, string version, address vault, VaultStatus status);
   event DemoteVault(address author, string version, address vault, VaultStatus status);
 
-  event Set(string key, address at);
-  event AddKey(string key);
-  event DeleteKey(string key);
+  event KeyAdded(string key, address at);
+  event KeyDeleted(string key, address at);
+
   event AddVersion(string version);
 
   modifier onlyGovernance() {
@@ -176,20 +176,20 @@ contract BadgerRegistry {
 
   //@dev Set the value of a key to a specific address
   //@notice e.g. controller = 0x123123
-  function set(string memory key, address at) public onlyGovernance {
+  function addKey(string memory key, address at) public onlyGovernance {
     keys[at] = key;
     addresses[key] = at;
     keysCount++;
-    emit Set(key, at);
+    emit KeyAdded(key, at);
   }
 
   //@dev Delete a key
   function deleteKey(string memory key) public onlyGovernance {
-    address target = addresses[key];
-    delete keys[target];
+    address at = addresses[key];
+    delete keys[at];
     delete addresses[key];
     keysCount--;
-    emit DeleteKey(key);
+    emit KeyDeleted(key, at);
   }
 
   //@dev Retrieve the value of a key
