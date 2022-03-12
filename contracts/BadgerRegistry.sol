@@ -243,10 +243,10 @@ contract BadgerRegistry {
   }
 
   //@dev Delete keys
-  function deleteKeys(string[] memory keys) external {
+  function deleteKeys(string[] memory _keys) external {
     require(msg.sender == governance, "!gov");
 
-    uint256 length = keys.length;
+    uint256 length = _keys.length;
     for (uint256 x = 0; x < length; ++x) {
       _deleteKey(keys[x]);
     }
