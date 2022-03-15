@@ -161,20 +161,38 @@ contract BadgerRegistry {
     }
   }
 
-  //TODO do we need this function if we are now having the deprecated status?
   function demote(
     string memory version,
     address vault,
     VaultStatus status
   ) public onlyPromoter {
+
+    require(status!=VaultStatus(2),"can't demote to production");
+
     VaultStatus actualStatus = status;
     if (msg.sender == devGovernance) {
       actualStatus = VaultStatus.experimental;
     }
 
-    bool removed = productionVaults[version][actualStatus].remove(vault);
+    bool added = productionVaults[version][actualStatus].add(vault);
+    // Demote vault to depreacted
+    if (uint256(actualStatus) == 3) {
+      productionVaults[version][VaultStatus(0)].remove(vault);
+      productionVaults[version][VaultStatus(1)].remove(vault);
+      productionVaults[version][VaultStatus(2)].remove(vault);
+    }
+    // Demote vault to guarded
+    if (uint256(actualStatus) == 1) {
+      productionVaults[version][VaultStatus(2)].remove(vault);
+    }
 
-    if (removed) {
+    // Demote vault to experimental
+    if (uint256(actualStatus) == 0) {
+      productionVaults[version][VaultStatus(1)].remove(vault);
+      productionVaults[version][VaultStatus(2)].remove(vault);
+    }
+
+    if (added) {
       emit DemoteVault(msg.sender, version, vault, status);
     }
   }
