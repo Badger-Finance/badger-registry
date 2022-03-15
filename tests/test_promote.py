@@ -53,13 +53,10 @@ def test_vault_promotion_step_deprecated(registry, vault, rando, gov):
     registry.promote("v1", vault, 2, {"from": gov})
     assert registry.getFilteredProductionVaults("v1", 2) == [[vault], [""]]
 
-    ## Promote from open to deprecated
+    ## Cant promote to deprecated
 
-    registry.promote("v1", vault, 3, {"from": gov})
-    assert registry.getFilteredProductionVaults("v1", 3) == [[vault], [""]]
-
-    ## After promoting a vault to the next steps, it's no longer in the previous steps
-    assert registry.getFilteredProductionVaults("v1", 2) == [[], []]
+    with brownie.reverts():
+        registry.promote("v1", vault, 3, {"from": gov})
 
 
 def test_vault_promotion_permissions(
@@ -90,5 +87,5 @@ def test_vault_promotion_permissions(
     assert registry.getFilteredProductionVaults("v1", 0) == [[], []]
     assert registry.getFilteredProductionVaults("v1", 2) == [
         [vault, vault_one],
-        ["",""]
+        ["", ""],
     ]

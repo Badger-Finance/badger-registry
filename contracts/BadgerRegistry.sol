@@ -131,6 +131,8 @@ contract BadgerRegistry {
     address vault,
     VaultStatus status
   ) public onlyPromoter {
+    require(status != VaultStatus(3), "can't promote to deprecated");
+
     VaultStatus actualStatus = status;
     if (msg.sender == devGovernance) {
       actualStatus = VaultStatus.experimental;
@@ -140,12 +142,6 @@ contract BadgerRegistry {
 
     // If added remove from old and emit event
     if (added) {
-      // remove  deprecated vault from all other stages
-      if (uint256(actualStatus) == 3) {
-        productionVaults[version][VaultStatus(0)].remove(vault);
-        productionVaults[version][VaultStatus(1)].remove(vault);
-        productionVaults[version][VaultStatus(2)].remove(vault);
-      }
       // also remove from old prod
       if (uint256(actualStatus) == 2) {
         // Remove from prev2
@@ -166,8 +162,7 @@ contract BadgerRegistry {
     address vault,
     VaultStatus status
   ) public onlyPromoter {
-
-    require(status!=VaultStatus(2),"can't demote to production");
+    require(status != VaultStatus(2), "can't demote to production");
 
     VaultStatus actualStatus = status;
     if (msg.sender == devGovernance) {
