@@ -23,7 +23,7 @@ def test_vault_promotion(registry, vault, rando, gov):
     tx = registry.promote("v1", "DCA-BTC-CVX", vault, 0, {"from": gov})
     assert len(tx.events) == 0
 
-def test_vault_promotion_by_strategist_guild(registry, vault, rando, gov, strategistGuild):
+def test_vault_promotion_by_strategist_guild(registry, vault, strategistGuild):
     registry.promote("v1", "DCA-BTC-CVX", vault, 0, {"from": strategistGuild})
     assert registry.getFilteredProductionVaults("v1", 0) == [[vault, "v1", "DCA-BTC-CVX"]]
 
