@@ -3,12 +3,13 @@ pragma solidity >=0.6.0 <0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
-import "./utils/Strings2Bytes32.sol";
+import "./utils/StringsUtils.sol";
 
 contract BadgerRegistry {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
-    using Strings2Bytes32 for string;
+    using StringsUtils for string;
+    using StringsUtils for bytes32;
 
     //@dev is the vault at the experimental, guarded or open stage? Only for Prod Vaults
     enum VaultStatus {
@@ -86,18 +87,36 @@ contract BadgerRegistry {
         VaultStatus status
     );
 
-    event Set(string key, address at);
+    event SetKey(string key, address at);
     event AddKey(string key);
     event DeleteKey(string key);
     event AddVersion(string version);
     event AddMetadata(string metadata);
 
+    modifier onlyGov() {
+        require(msg.sender == governance, "!gov");
+        _;
+    }
+
+    modifier onlyGovOrDev() {
+        require(
+            msg.sender == governance || msg.sender == devGovernance,
+            "!gov,!dev"
+        );
+        _;
+    }
+
     function initialize(
         address newGovernance,
         address[] memory _strategistGuild,
         uint256 _multiSigThreshold,
-        bool withAddress2KeysInitialization
+        bool address2KeysInitialization
     ) public {
+        if (address2KeysInitialization) {
+            initializeAddress2Keys();
+            return;
+        }
+
         require(
             governance == address(0) &&
                 strategistGuild.length == 0 &&
@@ -119,34 +138,29 @@ contract BadgerRegistry {
         productionMetadatas.push("");
 
         statusCount = 4;
+    }
 
-        if (withAddress2KeysInitialization) {
-            for (uint256 i = 0; i < keys.length; i++) {
-                string storage key = keys[i];
-                address target = addresses[key];
-                address2Keys[target].add(key.toBytes32());
-            }
+    //@dev Just for migrating current keys from the old version to the new contract when upgrading the proxy
+    function initializeAddress2Keys() internal onlyGovOrDev {
+        for (uint256 i = 0; i < keys.length; i++) {
+            string storage key = keys[i];
+            address target = addresses[key];
+            address2Keys[target].add(key.toBytes32());
         }
     }
 
-    function setGovernance(address _newGov) public {
-        require(msg.sender == governance, "!gov");
+    function setGovernance(address _newGov) public onlyGov {
         governance = _newGov;
     }
 
-    function setDev(address newDev) public {
-        require(
-            msg.sender == governance || msg.sender == devGovernance,
-            "!gov"
-        );
+    function setDev(address newDev) public onlyGovOrDev {
         devGovernance = newDev;
     }
 
     function setStrategistGuild(
         address[] memory _strategistGuild,
         uint256 _multiSigThreshold
-    ) public {
-        require(msg.sender == governance, "!gov");
+    ) public onlyGov {
         require(_multiSigThreshold > 0);
         for (uint256 i = 0; i < strategistGuild.length; i++) {
             isStrategist[strategistGuild[i]] = false;
@@ -162,8 +176,7 @@ contract BadgerRegistry {
 
     //@dev Utility function to add Versions for Vaults,
     //@notice No guarantee that it will be properly used
-    function addVersion(string memory version) public {
-        require(msg.sender == governance, "!gov");
+    function addVersion(string memory version) public onlyGov {
         versions.push(version);
 
         emit AddVersion(version);
@@ -171,8 +184,7 @@ contract BadgerRegistry {
 
     //@dev Utility function to add Metadata for Vaults,
     //@notice No guarantee that it will be properly used
-    function addMetadata(string memory metadata) public {
-        require(msg.sender == governance, "!gov");
+    function addMetadata(string memory metadata) public onlyGov {
         productionMetadatas.push(metadata);
 
         emit AddMetadata(metadata);
@@ -181,8 +193,8 @@ contract BadgerRegistry {
     //@dev Anyone can add a vault to here, it will be indexed by their address
     function add(
         string memory version,
-        address vault,
-        string memory metadata
+        string memory metadata,
+        address vault
     ) public {
         bool added = _getVaultSet(msg.sender, version, metadata).add(vault);
         if (added) {
@@ -193,8 +205,8 @@ contract BadgerRegistry {
     //@dev Remove the vault from your index
     function remove(
         string memory version,
-        address vault,
-        string memory metadata
+        string memory metadata,
+        address vault
     ) public {
         bool removed = _getVaultSet(msg.sender, version, metadata).remove(
             vault
@@ -208,9 +220,9 @@ contract BadgerRegistry {
     //@dev Promote just means indexed by the Governance Address
     function promote(
         string memory version,
+        string memory metadata,
         address vault,
-        VaultStatus status,
-        string memory metadata
+        VaultStatus status
     ) public {
         require(
             msg.sender == governance ||
@@ -220,7 +232,9 @@ contract BadgerRegistry {
         );
 
         if (isStrategist[msg.sender]) {
-            bytes32 parameters = keccak256(abi.encode(version, vault, status));
+            bytes32 parameters = keccak256(
+                abi.encode(version, metadata, vault, status)
+            );
             promoteConfirmations[parameters] += 1;
             if (promoteConfirmations[parameters] < multiSigThreshold) {
                 return;
@@ -228,14 +242,14 @@ contract BadgerRegistry {
             promoteConfirmations[parameters] = 0;
         }
 
-        _promote(version, vault, status, metadata);
+        _promote(version, metadata, vault, status);
     }
 
     function _promote(
         string memory version,
+        string memory metadata,
         address vault,
-        VaultStatus status,
-        string memory metadata
+        VaultStatus status
     ) internal {
         VaultStatus actualStatus = status;
         if (msg.sender == devGovernance) {
@@ -265,15 +279,10 @@ contract BadgerRegistry {
 
     function demote(
         string memory version,
+        string memory metadata,
         address vault,
-        VaultStatus status,
-        string memory metadata
-    ) public {
-        require(
-            msg.sender == governance || msg.sender == devGovernance,
-            "!gov"
-        );
-
+        VaultStatus status
+    ) public onlyGovOrDev {
         VaultStatus actualStatus = status;
         if (msg.sender == devGovernance) {
             actualStatus = VaultStatus.experimental;
@@ -291,18 +300,23 @@ contract BadgerRegistry {
 
     //@dev Set the value of a key to a specific address
     //@notice e.g. controller = 0x123123
-    function set(string memory key, address at) public {
-        require(msg.sender == governance, "!gov");
+    function setKey(string memory key, address at) public onlyGov {
         require(bytes(key).length <= 32);
         _addKey(key);
-        addresses[key] = at;
-        address2Keys[at].add(key.toBytes32());
-        emit Set(key, at);
+        address oldAt = addresses[key];
+        if (oldAt != at) {
+            // Set new address
+            addresses[key] = at;
+            // Remove key from oldAt's keys
+            address2Keys[oldAt].remove(key.toBytes32());
+            // Add key to at's keys
+            address2Keys[at].add(key.toBytes32());
+            emit SetKey(key, at);
+        }
     }
 
     //@dev Delete a key
-    function deleteKey(string memory key) public {
-        require(msg.sender == governance, "!gov");
+    function deleteKey(string memory key) public onlyGov {
         for (uint256 x = 0; x < keys.length; x++) {
             // Compare strings via their hash because solidity
             if (keccak256(bytes(key)) == keccak256(bytes(keys[x]))) {
@@ -318,17 +332,21 @@ contract BadgerRegistry {
     }
 
     //@dev Retrieve the value of a key
-    function get(string memory key) public view returns (address) {
+    function getTargetOfKey(string memory key) public view returns (address) {
         return addresses[key];
     }
 
     //@dev Retrieve the keys of an address
-    function getKeys(address target) public view returns (string[] memory) {
+    function getKeysOfTarget(address target)
+        public
+        view
+        returns (string[] memory)
+    {
         EnumerableSet.Bytes32Set storage keySet = address2Keys[target];
         uint256 length = keySet.length();
         string[] memory list = new string[](length);
         for (uint256 i = 0; i < length; i++) {
-            list[i] = string(abi.encodePacked(keySet.at(i)));
+            list[i] = keySet.at(i).toString();
         }
         return list;
     }
@@ -383,8 +401,8 @@ contract BadgerRegistry {
     //@dev Retrieve a list of all Vault Addresses from the given author
     function getVaults(
         string memory version,
-        address author,
-        string memory metadata
+        string memory metadata,
+        address author
     ) public view returns (address[] memory) {
         EnumerableSet.AddressSet storage vaultSet = _getVaultSet(
             author,
@@ -403,8 +421,8 @@ contract BadgerRegistry {
     //@dev Retrieve a list of all Vaults that are in production, based on Version and Status
     function getFilteredProductionVaults(
         string memory version,
-        VaultStatus status,
-        string memory metadata
+        string memory metadata,
+        VaultStatus status
     ) public view returns (address[] memory) {
         EnumerableSet.AddressSet storage vaultSet = _getProductionVaultSet(
             version,
