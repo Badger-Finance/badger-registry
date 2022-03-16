@@ -18,25 +18,25 @@ https://ftmscan.com/address/0xFda7eB6f8b7a9e9fCFd348042ae675d1d652454f
 
 ## Example Usage - Keys
 ### Get the Address of the Controller for this network
-```registry.get("controller")```
+```registry.getTargetOfKey("controller")```
 
 ## Example Usage - Vaults
 
 ### Retrieve Live Production Vault that use V1 Architecture
 
-```registry.getFilteredProductionVaults("v1", 2);```
+```registry.getFilteredProductionVaults("v1", "", 2);```
 
 ### Retrieve Experimental V2 Production Vaults
-```registry.getFilteredProductionVaults("v2", 0);```
+```registry.getFilteredProductionVaults("v2", "", 0);```
 
-### Get all Production Vaults, separated by Version and Type
+### Get all Production Vaults, separated by Version, Metadata and Type
 ```registry.getProductionVaults();```
 
 ## Brownie Usage
 
 1. Run The Console ```brownie console```
 2. Get the registry ```registry = BadgerRegistry.at("ADDRESS FOR THE NETWORK YOU WANT")```
-3. Get the keys ```registry.get("whatever")```
+3. Get the keys ```registry.getTargetOfKey("whatever")```
 
 
 ## More details
