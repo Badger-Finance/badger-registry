@@ -1,0 +1,18 @@
+[tool.poetry]
+authors = [
+  "Badger Finance <>",
+  "SSgumS <sssafais@hotmail.com>",
+]
+description = ""
+name = "Badger Registry"
+version = "2.0.0"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.10"
+
+[tool.poetry.dev-dependencies]
+eth-brownie = "^1.18.1"
+
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0"]
