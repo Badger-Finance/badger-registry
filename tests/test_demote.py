@@ -56,7 +56,30 @@ def test_vault_demotion_step_prod(
 def test_vault_demotion_permissions(
     registry, vault, vault_one, rando, gov, devGov, strategistGuild
 ):
-    # Rando can't promote
+    # Rando can't demote
 
     with brownie.reverts():
         registry.demote("v1", vault, 2, {"from": rando})
+
+
+def test_vault_demotion_order(registry, vault, vault_one, vault_two, gov):
+    # Demotion can be only happen in one direction
+    # If a user try to increase the status of a vault using the demote function the function should revert
+
+    # Can't demote from experimental to guarded
+    registry.promote("v1", vault, 0, {"from": gov})
+    assert registry.getFilteredProductionVaults("v1", 0) == [[vault], [""]]
+    with brownie.reverts():
+        registry.demote("v1", vault, 1, {"from": gov})
+
+    # Can't demote from experimental to open
+    registry.promote("v1", vault_one, 0, {"from": gov})
+    assert registry.getFilteredProductionVaults("v1", 0) == [[vault,vault_one], ["",""]]
+    with brownie.reverts():
+        registry.demote("v1", vault_one, 2, {"from": gov})
+
+    # Can't demote from guarded to open
+    registry.promote("v1", vault_two, 1, {"from": gov})
+    assert registry.getFilteredProductionVaults("v1", 1) == [[vault_two], [""]]
+    with brownie.reverts():
+        registry.demote("v1", vault_two, 2, {"from": gov})

@@ -54,9 +54,31 @@ def test_vault_promotion_step_deprecated(registry, vault, rando, gov):
     assert registry.getFilteredProductionVaults("v1", 2) == [[vault], [""]]
 
     ## Cant promote to deprecated
-
     with brownie.reverts():
         registry.promote("v1", vault, 3, {"from": gov})
+
+
+def test_vault_promotion_order(registry, vault, vault_one, vault_two, gov):
+    # Promotion can be only happen in one direction
+    # If a user try to lower the status of a vault using the promote function the function should revert
+
+    # Cant promote from open -> guarded
+    registry.promote("v1", vault, 2, {"from": gov})
+    assert registry.getFilteredProductionVaults("v1", 2) == [[vault], [""]]
+    with brownie.reverts():
+        registry.promote("v1", vault, 1, {"from": gov})
+
+    # Cant promote from deprecated -> open
+    registry.demote("v1", vault_one, 3, {"from": gov})
+    assert registry.getFilteredProductionVaults("v1", 3) == [[vault_one], [""]]
+    with brownie.reverts():
+        registry.promote("v1", vault_one, 2, {"from": gov})
+
+    # Cant promote from deprecated -> guarded
+    registry.demote("v1", vault_two, 3, {"from": gov})
+    assert registry.getFilteredProductionVaults("v1", 3) == [[vault_one,vault_two], ["",""]]
+    with brownie.reverts():
+        registry.promote("v1", vault_two, 1, {"from": gov})
 
 
 def test_vault_promotion_permissions(

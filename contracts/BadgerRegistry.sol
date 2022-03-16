@@ -144,11 +144,20 @@ contract BadgerRegistry {
     if (added) {
       // also remove from old prod
       if (uint256(actualStatus) == 2) {
+        //Cant use promte to lower the status
+        bool wasProviouslyDeprecated = productionVaults[version][VaultStatus(3)].contains(vault);
+        require(!wasProviouslyDeprecated, "vault's prevoius status needs to be lower than the new status");
         // Remove from prev2
         productionVaults[version][VaultStatus(0)].remove(vault);
         productionVaults[version][VaultStatus(1)].remove(vault);
       }
       if (uint256(actualStatus) == 1) {
+        bool wasProviouslyDeprecated = productionVaults[version][VaultStatus(3)].contains(vault);
+        bool wasProviouslyOpen = productionVaults[version][VaultStatus(2)].contains(vault);
+        require(
+          !(wasProviouslyDeprecated || wasProviouslyOpen),
+          "vault's prevoius status needs to be lower than the new status"
+        );
         // Remove from prev1
         productionVaults[version][VaultStatus(0)].remove(vault);
       }
@@ -178,11 +187,16 @@ contract BadgerRegistry {
     }
     // Demote vault to guarded
     if (uint256(actualStatus) == 1) {
+      bool wasPrevioslyExperimental = productionVaults[version][VaultStatus(0)].contains(vault);
+      require(!wasPrevioslyExperimental, "vault's prevoius status needs to be lower than the new status");
+
       productionVaults[version][VaultStatus(2)].remove(vault);
     }
 
     // Demote vault to experimental
+
     if (uint256(actualStatus) == 0) {
+    
       productionVaults[version][VaultStatus(1)].remove(vault);
       productionVaults[version][VaultStatus(2)].remove(vault);
     }
