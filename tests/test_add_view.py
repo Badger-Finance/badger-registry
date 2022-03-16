@@ -57,3 +57,34 @@ def test_user_can_add_remove_multiple_vaults(registry, vault_one, vault_two, vau
     
     # NOTE: Order of entries change when vaults are removed from sets
     assert registry.getVaults("v1", rando) == [[vault3, "v1", "DCA-MATIC-CVX"], [vault2, "v1", "DCA-ETH-CVX"]]
+
+
+
+def test_get_vaults_by_metadata(registry, vault_one, vault_two, vault_three, vault_four, rando):
+    # Author creates and adds vault1 to registry
+    vault1 = vault_one
+
+    registry.add(vault1, "v1", "DCA-BTC-CVX", {"from": rando})
+    assert registry.getVaultsByMetadata("DCA-BTC-CVX", rando) == [[vault1, "v1", "DCA-BTC-CVX"]]
+
+    vault2 = vault_two
+
+    registry.add(vault2, "v1", "DCA-BTC-CVX", {"from": rando})
+    assert registry.getVaultsByMetadata("DCA-BTC-CVX", rando) == [[vault1, "v1", "DCA-BTC-CVX"], [vault2, "v1", "DCA-BTC-CVX"]]
+
+    vault3 = vault_three
+
+    registry.add(vault3, "v2", "DCA-BTC-CVX", {"from": rando})
+    assert registry.getVaultsByMetadata("DCA-BTC-CVX", rando) == [[vault1, "v1", "DCA-BTC-CVX"], [vault2, "v1", "DCA-BTC-CVX"], [vault3, "v2", "DCA-BTC-CVX"]]
+
+    vault4 = vault_four
+
+    registry.add(vault4, "v2", "DCA-ETH-CVX", {"from": rando})
+    assert registry.getVaultsByMetadata("DCA-BTC-CVX", rando) == [[vault1, "v1", "DCA-BTC-CVX"], [vault2, "v1", "DCA-BTC-CVX"], [vault3, "v2", "DCA-BTC-CVX"]]
+    assert registry.getVaultsByMetadata("DCA-ETH-CVX", rando) == [[vault4, "v2", "DCA-ETH-CVX"]]
+
+    registry.remove(vault2, {"from": rando})
+
+    # NOTE: Order of entries change when vaults are removed from sets
+    assert registry.getVaultsByMetadata("DCA-BTC-CVX", rando) == [[vault1, "v1", "DCA-BTC-CVX"], [vault3, "v2", "DCA-BTC-CVX"]]
+    assert registry.getVaultsByMetadata("DCA-ETH-CVX", rando) == [[vault4, "v2", "DCA-ETH-CVX"]]
