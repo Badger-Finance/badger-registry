@@ -207,11 +207,14 @@ contract BadgerRegistry {
       actualStatus = VaultStatus.experimental;
     }
 
-    productionVaults[version][actualStatus].remove(vault);
-    productionVaultsByMetadataAndStatus[metadata][actualStatus].remove(vault);
+    bool removedFromVersionStatusSet = productionVaults[version][actualStatus].remove(vault);
+    bool removedFromMetadataStatusSet = productionVaultsByMetadataAndStatus[metadata][actualStatus].remove(vault);
+    bool deletedFromVaultInfoByVault = productionVaultInfoByVault[vault].vault != address(0);
     delete productionVaultInfoByVault[vault];
 
-    emit DemoteVault(msg.sender, version, metadata, vault, status);
+    if (removedFromVersionStatusSet || removedFromMetadataStatusSet || deletedFromVaultInfoByVault) {
+      emit DemoteVault(msg.sender, version, metadata, vault, status);
+    }
   }
 
   /** KEY Management */
