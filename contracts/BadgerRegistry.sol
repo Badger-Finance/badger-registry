@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 
 contract BadgerRegistry {
   using EnumerableSet for EnumerableSet.AddressSet;
+  using EnumerableSet for EnumerableSet.Bytes32Set;
 
   //@dev is the vault at the experimental, guarded or open stage? Only for Prod Vaults
   enum VaultStatus {
@@ -43,10 +44,13 @@ contract BadgerRegistry {
   uint256 public keysCount;
 
   /// @dev Given Version and VaultStatus, returns the list of Vaults in production
-  mapping(string => mapping(VaultStatus => EnumerableSet.AddressSet)) private productionVaults;
+  mapping(bytes32 => mapping(VaultStatus => EnumerableSet.AddressSet)) private productionVaults;
 
   // Known constants you can use
-  string[] public versions; //@notice, you don't have a guarantee of the key being there, it's just a utility
+  EnumerableSet.Bytes32Set private versions; //@notice, you don't have a guarantee of the key being there, it's just a utility
+
+  ///@dev versionLookup can be used to get a string representation of the stored keccak hash
+  mapping(bytes32 => string) versionLookup;
 
   event NewVault(address author, string version, address vault);
   event RemoveVault(address author, string version, address vault);
@@ -57,6 +61,16 @@ contract BadgerRegistry {
   event KeyDeleted(string key, address at);
 
   event AddVersion(string version);
+
+  constructor(address newGovernance) public {
+    governance = newGovernance;
+    versions.add(keccak256(abi.encode("v1"))); //For v1
+    versions.add(keccak256(abi.encode("v2"))); //For v2
+    
+
+    versionLookup[keccak256(abi.encode("v1"))] = "v1";
+    versionLookup[keccak256(abi.encode("v2"))] = "v2";
+  }
 
   modifier onlyGovernance() {
     require(msg.sender == governance, "!gov");
@@ -76,12 +90,6 @@ contract BadgerRegistry {
     _;
   }
 
-  constructor(address newGovernance) public {
-    governance = newGovernance;
-    versions.push("v1"); //For v1
-    versions.push("v2"); //For v2
-  }
-
   function setGovernance(address _newGov) public onlyGovernance {
     governance = _newGov;
   }
@@ -98,7 +106,8 @@ contract BadgerRegistry {
   //@notice No guarantee that it will be properly used
   function addVersions(string memory version) public onlyGovernance {
     require(msg.sender == governance, "!gov");
-    versions.push(version);
+    versions.add(keccak256(abi.encode((version))));
+    versionLookup[keccak256(abi.encode(version))] = version;
 
     emit AddVersion(version);
   }
@@ -127,7 +136,7 @@ contract BadgerRegistry {
   //@dev Promote a vault to Production
   //@dev Promote just means indexed by the Governance Address
   function promote(
-    string memory version,
+    string memory _version,
     address vault,
     VaultStatus status
   ) public onlyPromoter {
@@ -137,6 +146,8 @@ contract BadgerRegistry {
     if (msg.sender == devGovernance) {
       actualStatus = VaultStatus.experimental;
     }
+
+    bytes32 version = keccak256(abi.encode(_version));
 
     bool added = productionVaults[version][actualStatus].add(vault);
 
@@ -162,12 +173,12 @@ contract BadgerRegistry {
         productionVaults[version][VaultStatus(0)].remove(vault);
       }
 
-      emit PromoteVault(msg.sender, version, vault, actualStatus);
+      emit PromoteVault(msg.sender, _version, vault, actualStatus);
     }
   }
 
   function demote(
-    string memory version,
+    string memory _version,
     address vault,
     VaultStatus status
   ) public onlyPromoter {
@@ -177,6 +188,8 @@ contract BadgerRegistry {
     if (msg.sender == devGovernance) {
       actualStatus = VaultStatus.experimental;
     }
+
+    bytes32 version = keccak256(abi.encode(_version));
 
     bool added = productionVaults[version][actualStatus].add(vault);
     // Demote vault to depreacted
@@ -196,13 +209,12 @@ contract BadgerRegistry {
     // Demote vault to experimental
 
     if (uint256(actualStatus) == 0) {
-    
       productionVaults[version][VaultStatus(1)].remove(vault);
       productionVaults[version][VaultStatus(2)].remove(vault);
     }
 
     if (added) {
-      emit DemoteVault(msg.sender, version, vault, status);
+      emit DemoteVault(msg.sender, _version, vault, status);
     }
   }
 
@@ -255,11 +267,13 @@ contract BadgerRegistry {
   }
 
   //@dev Retrieve a list of all Vaults that are in production, based on Version and Status
-  function getFilteredProductionVaults(string memory version, VaultStatus status)
+  function getFilteredProductionVaults(string memory _version, VaultStatus status)
     public
     view
     returns (address[] memory vaultAddresses, string[] memory vaultMetadata)
   {
+    bytes32 version = keccak256(abi.encode(_version));
+
     uint256 length = productionVaults[version][status].length();
 
     vaultAddresses = new address[](length);
@@ -274,24 +288,24 @@ contract BadgerRegistry {
   }
 
   function getProductionVaults() public view returns (VaultData[] memory vaultData) {
-    uint256 versionsCount = versions.length;
+    uint256 versionsCount = versions.length();
 
     vaultData = new VaultData[](versionsCount * 3);
 
     for (uint256 x = 0; x < versionsCount; x++) {
       for (uint256 y = 0; y < 3; y++) {
-        uint256 length = productionVaults[versions[x]][VaultStatus(y)].length();
+        uint256 length = productionVaults[versions.at(x)][VaultStatus(y)].length();
         address[] memory vaultAddresses = new address[](length);
         string[] memory vaultMetadata = new string[](length);
 
         for (uint256 z = 0; z < length; z++) {
-          address currentVault = productionVaults[versions[x]][VaultStatus(y)].at(z);
+          address currentVault = productionVaults[versions.at(x)][VaultStatus(y)].at(z);
 
           vaultAddresses[z] = currentVault;
           vaultMetadata[z] = metadata[currentVault];
         }
         vaultData[x * (versionsCount - 1) + y * 2] = VaultData({
-          version: versions[x],
+          version: versionLookup[versions.at(x)],
           status: VaultStatus(y),
           list: vaultAddresses,
           metadata: vaultMetadata
