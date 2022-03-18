@@ -40,8 +40,7 @@ def alt_strategist_guild(gov, alt_gov, dev):
 
 
 @pytest.fixture
-def registry(gov, strategist_guild: list, BadgerRegistry, StringsUtils):
-    gov.deploy(StringsUtils)
+def registry(gov, strategist_guild: list, BadgerRegistry):
     registry = gov.deploy(BadgerRegistry)
     registry.initialize(gov, strategist_guild, len(strategist_guild) / 2 + 1, False)
     yield registry

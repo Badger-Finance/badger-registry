@@ -1,5 +1,5 @@
 import brownie
-from brownie import ZERO_ADDRESS, AdminUpgradeabilityProxy, BadgerRegistry, StringsUtils
+from brownie import ZERO_ADDRESS, AdminUpgradeabilityProxy, BadgerRegistry
 
 
 def test_initialize(registry, gov, strategist_guild):
@@ -14,7 +14,6 @@ def test_initialize(registry, gov, strategist_guild):
 
 ## Check if the key migrator doesn't ruin anything
 def test_initialize_with_reverse_key_initialization(gov, dev, strategist_guild):
-    StringsUtils.deploy({"from": dev})
     registry = BadgerRegistry.deploy({"from": dev})
     args = [gov, strategist_guild, len(strategist_guild) / 2 + 1, False]
     proxy = AdminUpgradeabilityProxy.deploy(
