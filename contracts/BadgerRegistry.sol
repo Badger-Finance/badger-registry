@@ -66,7 +66,6 @@ contract BadgerRegistry {
     governance = newGovernance;
     versions.add(keccak256(abi.encode("v1"))); //For v1
     versions.add(keccak256(abi.encode("v2"))); //For v2
-    
 
     versionLookup[keccak256(abi.encode("v1"))] = "v1";
     versionLookup[keccak256(abi.encode("v2"))] = "v2";
@@ -87,6 +86,11 @@ contract BadgerRegistry {
       msg.sender == governance || msg.sender == strategistGuild || msg.sender == devGovernance,
       "you are not allowed to promote"
     );
+    _;
+  }
+
+  modifier versionGuard(string memory version) {
+    require(versions.contains(keccak256(abi.encode(version))), "version is not supported");
     _;
   }
 
@@ -117,7 +121,7 @@ contract BadgerRegistry {
     string memory version,
     address vault,
     string memory _metadata
-  ) public {
+  ) public versionGuard(version){
     bool added = vaults[msg.sender][version].add(vault);
     metadata[vault] = _metadata;
     if (added) {
