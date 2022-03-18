@@ -31,7 +31,7 @@ contract BadgerRegistry {
   address public strategistGuild;
 
   /// @dev Given an Author Address, and Token, Return the Vault
-  mapping(address => mapping(string => EnumerableSet.AddressSet)) private vaults;
+  mapping(address => mapping(bytes32 => EnumerableSet.AddressSet)) private vaults;
   /// @dev Stores the metadata of a vault
   mapping(address => string) private metadata;
 
@@ -122,7 +122,9 @@ contract BadgerRegistry {
     address _vault,
     string memory _metadata
   ) public versionGuard(_version) {
-    bool added = vaults[msg.sender][_version].add(_vault);
+    bytes32 version = keccak256(abi.encode(_version));
+
+    bool added = vaults[msg.sender][version].add(_vault);
     metadata[_vault] = _metadata;
     if (added) {
       emit NewVault(msg.sender, _version, _vault);
@@ -130,10 +132,12 @@ contract BadgerRegistry {
   }
 
   //@dev Remove the vault from your index
-  function remove(string memory version, address _vault) public {
+  function remove(string memory _version, address _vault) public {
+    bytes32 version = keccak256(abi.encode(_version));
+
     bool removed = vaults[msg.sender][version].remove(_vault);
     if (removed) {
-      emit RemoveVault(msg.sender, version, _vault);
+      emit RemoveVault(msg.sender, _version, _vault);
     }
   }
 
@@ -258,13 +262,14 @@ contract BadgerRegistry {
     view
     returns (address[] memory vaultAddresses, string[] memory vaultMetadata)
   {
-    uint256 length = vaults[_author][_version].length();
+    bytes32 version = keccak256(abi.encode(_version));
+    uint256 length = vaults[_author][version].length();
 
     vaultAddresses = new address[](length);
     vaultMetadata = new string[](length);
 
     for (uint256 i = 0; i < length; i++) {
-      address currentVault = vaults[_author][_version].at(i);
+      address currentVault = vaults[_author][version].at(i);
       vaultAddresses[i] = currentVault;
       vaultMetadata[i] = metadata[currentVault];
     }
