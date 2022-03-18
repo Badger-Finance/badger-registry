@@ -62,8 +62,8 @@ contract BadgerRegistry {
 
   event AddVersion(string version);
 
-  constructor(address newGovernance) public {
-    governance = newGovernance;
+  constructor(address _newGovernance) public {
+    governance = _newGovernance;
     versions.add(keccak256(abi.encode("v1"))); //For v1
     versions.add(keccak256(abi.encode("v2"))); //For v2
 
@@ -89,8 +89,8 @@ contract BadgerRegistry {
     _;
   }
 
-  modifier versionGuard(string memory version) {
-    require(versions.contains(keccak256(abi.encode(version))), "version is not supported");
+  modifier versionGuard(string memory _version) {
+    require(versions.contains(keccak256(abi.encode(_version))), "version is not supported");
     _;
   }
 
@@ -98,42 +98,42 @@ contract BadgerRegistry {
     governance = _newGov;
   }
 
-  function setDev(address newDev) public onlyDev {
-    devGovernance = newDev;
+  function setDev(address _newDev) public onlyDev {
+    devGovernance = _newDev;
   }
 
-  function setStrategistGuild(address newStrategist) public onlyGovernance {
-    strategistGuild = newStrategist;
+  function setStrategistGuild(address _newStrategist) public onlyGovernance {
+    strategistGuild = _newStrategist;
   }
 
   //@dev Utility function to add Versions for Vaults,
   //@notice No guarantee that it will be properly used
-  function addVersions(string memory version) public onlyGovernance {
+  function addVersions(string memory _version) public onlyGovernance {
     require(msg.sender == governance, "!gov");
-    versions.add(keccak256(abi.encode((version))));
-    versionLookup[keccak256(abi.encode(version))] = version;
+    versions.add(keccak256(abi.encode((_version))));
+    versionLookup[keccak256(abi.encode(_version))] = _version;
 
-    emit AddVersion(version);
+    emit AddVersion(_version);
   }
 
   //@dev Anyone can add a vault to here, it will be indexed by their address
   function add(
-    string memory version,
-    address vault,
+    string memory _version,
+    address _vault,
     string memory _metadata
-  ) public versionGuard(version){
-    bool added = vaults[msg.sender][version].add(vault);
-    metadata[vault] = _metadata;
+  ) public versionGuard(_version){
+    bool added = vaults[msg.sender][_version].add(_vault);
+    metadata[_vault] = _metadata;
     if (added) {
-      emit NewVault(msg.sender, version, vault);
+      emit NewVault(msg.sender, _version, _vault);
     }
   }
 
   //@dev Remove the vault from your index
-  function remove(string memory version, address vault) public {
-    bool removed = vaults[msg.sender][version].remove(vault);
+  function remove(string memory version, address _vault) public {
+    bool removed = vaults[msg.sender][version].remove(_vault);
     if (removed) {
-      emit RemoveVault(msg.sender, version, vault);
+      emit RemoveVault(msg.sender, version, _vault);
     }
   }
 
@@ -141,84 +141,84 @@ contract BadgerRegistry {
   //@dev Promote just means indexed by the Governance Address
   function promote(
     string memory _version,
-    address vault,
-    VaultStatus status
+    address _vault,
+    VaultStatus _status
   ) public onlyPromoter {
-    require(status != VaultStatus(3), "can't promote to deprecated");
+    require(_status != VaultStatus(3), "can't promote to deprecated");
 
-    VaultStatus actualStatus = status;
+    VaultStatus actualStatus = _status;
     if (msg.sender == devGovernance) {
       actualStatus = VaultStatus.experimental;
     }
 
     bytes32 version = keccak256(abi.encode(_version));
 
-    bool added = productionVaults[version][actualStatus].add(vault);
+    bool added = productionVaults[version][actualStatus].add(_vault);
 
     // If added remove from old and emit event
     if (added) {
       // also remove from old prod
       if (uint256(actualStatus) == 2) {
         //Cant use promte to lower the status
-        bool wasProviouslyDeprecated = productionVaults[version][VaultStatus(3)].contains(vault);
+        bool wasProviouslyDeprecated = productionVaults[version][VaultStatus(3)].contains(_vault);
         require(!wasProviouslyDeprecated, "vault's prevoius status needs to be lower than the new status");
         // Remove from prev2
-        productionVaults[version][VaultStatus(0)].remove(vault);
-        productionVaults[version][VaultStatus(1)].remove(vault);
+        productionVaults[version][VaultStatus(0)].remove(_vault);
+        productionVaults[version][VaultStatus(1)].remove(_vault);
       }
       if (uint256(actualStatus) == 1) {
-        bool wasProviouslyDeprecated = productionVaults[version][VaultStatus(3)].contains(vault);
-        bool wasProviouslyOpen = productionVaults[version][VaultStatus(2)].contains(vault);
+        bool wasProviouslyDeprecated = productionVaults[version][VaultStatus(3)].contains(_vault);
+        bool wasProviouslyOpen = productionVaults[version][VaultStatus(2)].contains(_vault);
         require(
           !(wasProviouslyDeprecated || wasProviouslyOpen),
           "vault's prevoius status needs to be lower than the new status"
         );
         // Remove from prev1
-        productionVaults[version][VaultStatus(0)].remove(vault);
+        productionVaults[version][VaultStatus(0)].remove(_vault);
       }
 
-      emit PromoteVault(msg.sender, _version, vault, actualStatus);
+      emit PromoteVault(msg.sender, _version, _vault, actualStatus);
     }
   }
 
   function demote(
     string memory _version,
-    address vault,
-    VaultStatus status
+    address _vault,
+    VaultStatus _status
   ) public onlyPromoter {
-    require(status != VaultStatus(2), "can't demote to production");
+    require(_status != VaultStatus(2), "can't demote to production");
 
-    VaultStatus actualStatus = status;
+    VaultStatus actualStatus = _status;
     if (msg.sender == devGovernance) {
       actualStatus = VaultStatus.experimental;
     }
 
     bytes32 version = keccak256(abi.encode(_version));
 
-    bool added = productionVaults[version][actualStatus].add(vault);
+    bool added = productionVaults[version][actualStatus].add(_vault);
     // Demote vault to depreacted
     if (uint256(actualStatus) == 3) {
-      productionVaults[version][VaultStatus(0)].remove(vault);
-      productionVaults[version][VaultStatus(1)].remove(vault);
-      productionVaults[version][VaultStatus(2)].remove(vault);
+      productionVaults[version][VaultStatus(0)].remove(_vault);
+      productionVaults[version][VaultStatus(1)].remove(_vault);
+      productionVaults[version][VaultStatus(2)].remove(_vault);
     }
     // Demote vault to guarded
     if (uint256(actualStatus) == 1) {
-      bool wasPrevioslyExperimental = productionVaults[version][VaultStatus(0)].contains(vault);
+      bool wasPrevioslyExperimental = productionVaults[version][VaultStatus(0)].contains(_vault);
       require(!wasPrevioslyExperimental, "vault's prevoius status needs to be lower than the new status");
 
-      productionVaults[version][VaultStatus(2)].remove(vault);
+      productionVaults[version][VaultStatus(2)].remove(_vault);
     }
 
     // Demote vault to experimental
 
     if (uint256(actualStatus) == 0) {
-      productionVaults[version][VaultStatus(1)].remove(vault);
-      productionVaults[version][VaultStatus(2)].remove(vault);
+      productionVaults[version][VaultStatus(1)].remove(_vault);
+      productionVaults[version][VaultStatus(2)].remove(_vault);
     }
 
     if (added) {
-      emit DemoteVault(msg.sender, _version, vault, status);
+      emit DemoteVault(msg.sender, _version, _vault, _status);
     }
   }
 
@@ -226,67 +226,67 @@ contract BadgerRegistry {
 
   //@dev Set the value of a key to a specific address
   //@notice e.g. controller = 0x123123
-  function addKey(string memory key, address at) public onlyGovernance {
-    keys[at] = key;
-    addresses[key] = at;
+  function addKey(string memory _key, address _at) public onlyGovernance {
+    keys[_at] = _key;
+    addresses[_key] = _at;
     keysCount++;
-    emit KeyAdded(key, at);
+    emit KeyAdded(_key, _at);
   }
 
   //@dev Delete a key
-  function deleteKey(string memory key) public onlyGovernance {
-    address at = addresses[key];
+  function deleteKey(string memory _key) public onlyGovernance {
+    address at = addresses[_key];
     delete keys[at];
-    delete addresses[key];
+    delete addresses[_key];
     keysCount--;
-    emit KeyDeleted(key, at);
+    emit KeyDeleted(_key, at);
   }
 
   //@dev Retrieve the value of a key
-  function getAddressOfKey(string memory key) public view returns (address) {
-    return addresses[key];
+  function getAddressOfKey(string memory _key) public view returns (address) {
+    return addresses[_key];
   }
 
   //@dev Retrieve the key of a value
-  function getKeyOfAddress(address value) public view returns (string memory) {
-    return keys[value];
+  function getKeyOfAddress(address _value) public view returns (string memory) {
+    return keys[_value];
   }
 
   //@dev Retrieve a list of all Vault Addresses from the given author
-  function getVaults(string memory version, address author)
+  function getVaults(string memory _version, address _author)
     public
     view
     returns (address[] memory vaultAddresses, string[] memory vaultMetadata)
   {
-    uint256 length = vaults[author][version].length();
+    uint256 length = vaults[_author][_version].length();
 
     vaultAddresses = new address[](length);
     vaultMetadata = new string[](length);
 
     for (uint256 i = 0; i < length; i++) {
-      address currentVault = vaults[author][version].at(i);
+      address currentVault = vaults[_author][_version].at(i);
       vaultAddresses[i] = currentVault;
       vaultMetadata[i] = metadata[currentVault];
     }
   }
 
   //@dev Retrieve a list of all Vaults that are in production, based on Version and Status
-  function getFilteredProductionVaults(string memory _version, VaultStatus status)
+  function getFilteredProductionVaults(string memory _version, VaultStatus _status)
     public
     view
     returns (address[] memory vaultAddresses, string[] memory vaultMetadata)
   {
     bytes32 version = keccak256(abi.encode(_version));
 
-    uint256 length = productionVaults[version][status].length();
+    uint256 length = productionVaults[version][_status].length();
 
     vaultAddresses = new address[](length);
     vaultMetadata = new string[](length);
 
     address[] memory list = new address[](length);
     for (uint256 i = 0; i < length; i++) {
-      address currentVault = productionVaults[version][status].at(i);
-      vaultAddresses[i] = productionVaults[version][status].at(i);
+      address currentVault = productionVaults[version][_status].at(i);
+      vaultAddresses[i] = productionVaults[version][_status].at(i);
       vaultMetadata[i] = metadata[currentVault];
     }
   }
