@@ -111,3 +111,13 @@ def test_vault_promotion_permissions(
         [vault, vault_one],
         ["", ""],
     ]
+
+
+def test_vault_promotion_version(registry, vault, rando, gov):
+    #Can promote a supported version
+    registry.promote("v1", vault, 2, {"from": gov})
+    assert registry.getFilteredProductionVaults("v1", 2) == [[vault], [""]]
+
+    ## Cant promote to deprecated
+    with brownie.reverts():
+        registry.promote("v10", vault, 2, {"from": gov})

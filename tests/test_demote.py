@@ -74,7 +74,10 @@ def test_vault_demotion_order(registry, vault, vault_one, vault_two, gov):
 
     # Can't demote from experimental to open
     registry.promote("v1", vault_one, 0, {"from": gov})
-    assert registry.getFilteredProductionVaults("v1", 0) == [[vault,vault_one], ["",""]]
+    assert registry.getFilteredProductionVaults("v1", 0) == [
+        [vault, vault_one],
+        ["", ""],
+    ]
     with brownie.reverts():
         registry.demote("v1", vault_one, 2, {"from": gov})
 
@@ -83,3 +86,13 @@ def test_vault_demotion_order(registry, vault, vault_one, vault_two, gov):
     assert registry.getFilteredProductionVaults("v1", 1) == [[vault_two], [""]]
     with brownie.reverts():
         registry.demote("v1", vault_two, 2, {"from": gov})
+
+
+def test_vault_demotion_version(registry, vault, rando, gov):
+    # Can promote a supported version
+    registry.demote("v1", vault, 0, {"from": gov})
+    assert registry.getFilteredProductionVaults("v1", 0) == [[vault], [""]]
+
+    ## Cant promote to deprecated
+    with brownie.reverts():
+        registry.demote("v10", vault, 0, {"from": gov})

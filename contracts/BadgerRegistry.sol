@@ -121,7 +121,7 @@ contract BadgerRegistry {
     string memory _version,
     address _vault,
     string memory _metadata
-  ) public versionGuard(_version){
+  ) public versionGuard(_version) {
     bool added = vaults[msg.sender][_version].add(_vault);
     metadata[_vault] = _metadata;
     if (added) {
@@ -143,7 +143,7 @@ contract BadgerRegistry {
     string memory _version,
     address _vault,
     VaultStatus _status
-  ) public onlyPromoter {
+  ) public onlyPromoter versionGuard(_version) {
     require(_status != VaultStatus(3), "can't promote to deprecated");
 
     VaultStatus actualStatus = _status;
@@ -185,7 +185,7 @@ contract BadgerRegistry {
     string memory _version,
     address _vault,
     VaultStatus _status
-  ) public onlyPromoter {
+  ) public onlyPromoter versionGuard(_version) {
     require(_status != VaultStatus(2), "can't demote to production");
 
     VaultStatus actualStatus = _status;
