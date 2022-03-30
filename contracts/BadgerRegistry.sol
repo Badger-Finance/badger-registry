@@ -94,6 +94,9 @@ contract BadgerRegistry {
     _;
   }
 
+  ///
+  /// Access control. Assigns addresses to registries roles
+  ///
   function setGovernance(address _newGov) public onlyGovernance {
     governance = _newGov;
   }
@@ -106,6 +109,10 @@ contract BadgerRegistry {
     strategistGuild = _newStrategist;
   }
 
+  ///
+  /// version management. Adds a new version
+  ///
+
   //@dev Utility function to add Versions for Vaults,
   //@notice No guarantee that it will be properly used
   function addVersions(string memory _version) public onlyGovernance {
@@ -115,6 +122,10 @@ contract BadgerRegistry {
 
     emit AddVersion(_version);
   }
+
+  ///
+  /// vault management. Adds or removes vaults from the registry
+  ///
 
   //@dev Anyone can add a vault to here, it will be indexed by their address
   function add(
@@ -140,6 +151,10 @@ contract BadgerRegistry {
       emit RemoveVault(msg.sender, _version, _vault);
     }
   }
+
+  ///
+  /// Promotion and demotion for changing vault states
+  ///
 
   //@dev Promote a vault to Production
   //@dev Promote just means indexed by the Governance Address
@@ -226,7 +241,9 @@ contract BadgerRegistry {
     }
   }
 
-  /** KEY Management */
+  ///
+  /// Key management
+  ///
 
   //@dev Set the value of a key to a specific address
   //@notice e.g. controller = 0x123123
@@ -245,6 +262,10 @@ contract BadgerRegistry {
     keysCount--;
     emit KeyDeleted(_key, at);
   }
+
+  ///
+  /// View functions
+  ///
 
   //@dev Retrieve the value of a key
   function getAddressOfKey(string memory _key) public view returns (address) {
