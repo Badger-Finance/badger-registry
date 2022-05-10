@@ -4,18 +4,23 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-
 contract BadgerRegistry {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   /// @dev is the vault at the experimental, guarded, open or deprecated stage? Only for Prod Vaults
-  enum VaultStatus { experimental, guarded, open, deprecated }
+  enum VaultStatus {
+    deprecated,
+    experimental,
+    guarded,
+    open
+  }
 
-  uint public constant VAULT_STATUS_LENGTH = 4;
+  uint256 public constant VAULT_STATUS_LENGTH = 4;
 
   struct VaultInfo {
     address vault;
     string version;
+    VaultStatus status;
     string metadata;
   }
 
@@ -58,6 +63,7 @@ contract BadgerRegistry {
   event RemoveVault(address author, string version, string metadata, address vault);
   event PromoteVault(address author, string version, string metadata, address vault, VaultStatus status);
   event DemoteVault(address author, string version, string metadata, address vault, VaultStatus status);
+  event PurgeVault(address author, string version, string metadata, address vault, VaultStatus status);
 
   event Set(string key, address at);
   event AddKey(string key);
@@ -71,6 +77,7 @@ contract BadgerRegistry {
     devGovernance = address(0);
 
     versions.push("v1"); //For v1
+    versions.push("v1.5"); //For v1.5
     versions.push("v2"); //For v2
   }
 
@@ -98,25 +105,30 @@ contract BadgerRegistry {
     emit AddVersion(version);
   }
 
-
   /// @dev Anyone can add a vault to here, it will be indexed by their address
-  function add(address vault, string memory version, string memory metadata) public {
+  function add(
+    address vault,
+    string memory version,
+    string memory metadata
+  ) public {
     VaultInfo memory existedVaultInfo = vaultInfoByAuthorAndVault[msg.sender][vault];
     if (existedVaultInfo.vault != address(0)) {
       require(
         // Compare strings via their hash because solidity
-        vault == existedVaultInfo.vault
-          && keccak256(bytes(version)) == keccak256(bytes(existedVaultInfo.version))
-          && keccak256(bytes(metadata)) == keccak256(bytes(existedVaultInfo.metadata)),
+        vault == existedVaultInfo.vault &&
+          keccak256(bytes(version)) == keccak256(bytes(existedVaultInfo.version)) &&
+          keccak256(bytes(metadata)) == keccak256(bytes(existedVaultInfo.metadata)),
         "BadgerRegistry: vault info changed. Please remove before add changed vault info"
       );
       // Same vault cannot be added twice (nothing happens)
       return;
     }
 
+    // Vault status start as experimental, this aids in promotion / demotion invariants
     vaultInfoByAuthorAndVault[msg.sender][vault] = VaultInfo({
       vault: vault,
       version: version,
+      status: VaultStatus(1),
       metadata: metadata
     });
 
@@ -139,7 +151,7 @@ contract BadgerRegistry {
 
   /// @dev Promote a vault to Production
   /// @dev Promote just means indexed by the Governance Address
-  function promote(string memory version, string memory metadata, address vault, VaultStatus status) public {
+  function promote(address vault, VaultStatus status) public {
     require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == devGovernance, "!auth");
 
     VaultStatus actualStatus = status;
@@ -148,39 +160,25 @@ contract BadgerRegistry {
     }
 
     VaultInfo memory existedVaultInfo = productionVaultInfoByVault[vault];
-    if (existedVaultInfo.vault != address(0)) {
-      require(
-        // Compare strings via their hash because solidity
-        vault == existedVaultInfo.vault
-          && keccak256(bytes(version)) == keccak256(bytes(existedVaultInfo.version))
-          && keccak256(bytes(metadata)) == keccak256(bytes(existedVaultInfo.metadata)),
-        "BadgerRegistry: vault info changed. Please demote before promote changed vault info"
-      );
-    } else {
-      productionVaultInfoByVault[vault] = VaultInfo({
-        vault: vault,
-        version: version,
-        metadata: metadata
-      });
-    }
+    require(existedVaultInfo.vault != address(0), "BadgerRegistry: Vault does not exist");
+    // Value should be allowed to be equal to allow for promotion of vaults to experimental status as prod vaults
+    require(uint256(actualStatus) >= uint256(existedVaultInfo.status), "BadgerRegistry: Vault is not being promoted");
 
-    bool addedToVersionStatusSet = productionVaults[version][actualStatus].add(vault);
+    bool addedToVersionStatusSet = productionVaults[existedVaultInfo.version][actualStatus].add(vault);
     // If addedToVersionStatusSet remove from old and emit event
     if (addedToVersionStatusSet) {
       // also remove from old prod
       if (uint256(actualStatus) > 0) {
-        for(uint256 status_ = uint256(actualStatus); status_ > 0; --status_) {
-          productionVaults[version][VaultStatus(status_ - 1)].remove(vault);
+        for (uint256 status_ = uint256(actualStatus); status_ > 0; --status_) {
+          productionVaults[existedVaultInfo.version][VaultStatus(status_ - 1)].remove(vault);
         }
       }
-    }
 
-    if (addedToVersionStatusSet) {
-      emit PromoteVault(msg.sender, version, metadata, vault, actualStatus);
+      emit PromoteVault(msg.sender, existedVaultInfo.version, existedVaultInfo.metadata, vault, actualStatus);
     }
   }
 
-  function demote(string memory version, string memory metadata, address vault, VaultStatus status) public {
+  function demote(address vault, VaultStatus status) public {
     require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == devGovernance, "!auth");
 
     VaultStatus actualStatus = status;
@@ -188,12 +186,35 @@ contract BadgerRegistry {
       actualStatus = VaultStatus.experimental;
     }
 
-    bool removedFromVersionStatusSet = productionVaults[version][actualStatus].remove(vault);
-    bool deletedFromVaultInfoByVault = productionVaultInfoByVault[vault].vault != address(0);
-    delete productionVaultInfoByVault[vault];
+    VaultInfo memory existedVaultInfo = productionVaultInfoByVault[vault];
+    require(existedVaultInfo.vault != address(0), "BadgerRegistry: Vault does not exist");
+    // Value should be allowed to be equal to allow for promotion of vaults to experimental status as prod vaults
+    require(uint256(actualStatus) < uint256(existedVaultInfo.status), "BadgerRegistry: Vault is not being demoted");
 
+    bool removedFromVersionStatusSet = productionVaults[existedVaultInfo.version][actualStatus].remove(vault);
+    if (removedFromVersionStatusSet) {
+      if (uint256(actualStatus) < VAULT_STATUS_LENGTH - 1) {
+        for (uint256 status_ = uint256(actualStatus); status_ <= VAULT_STATUS_LENGTH - 1; status_++) {
+          productionVaults[existedVaultInfo.version][VaultStatus(status_)].remove(vault);
+        }
+      }
+      emit DemoteVault(msg.sender, existedVaultInfo.version, existedVaultInfo.metadata, vault, status);
+    }
+  }
+
+  function purge(address vault) public {
+    require(msg.sender == governance || msg.sender == strategistGuild, "!auth");
+
+    VaultInfo memory existedVaultInfo = productionVaultInfoByVault[vault];
+    require(existedVaultInfo.vault != address(0), "BadgerRegistry: Vault does not exist");
+
+    bool removedFromVersionStatusSet = productionVaults[existedVaultInfo.version][existedVaultInfo.status].remove(
+      vault
+    );
+    bool deletedFromVaultInfoByVault = productionVaultInfoByVault[vault].vault != address(0);
     if (removedFromVersionStatusSet || deletedFromVaultInfoByVault) {
-      emit DemoteVault(msg.sender, version, metadata, vault, status);
+      delete productionVaultInfoByVault[vault];
+      emit PurgeVault(msg.sender, existedVaultInfo.version, existedVaultInfo.metadata, vault, existedVaultInfo.status);
     }
   }
 
@@ -219,9 +240,9 @@ contract BadgerRegistry {
     address at = addresses[key];
     delete keyByAddress[at];
 
-    for(uint256 x = 0; x < keys.length; x++){
+    for (uint256 x = 0; x < keys.length; x++) {
       // Compare strings via their hash because solidity
-      if(keccak256(bytes(key)) == keccak256(bytes(keys[x]))) {
+      if (keccak256(bytes(key)) == keccak256(bytes(keys[x]))) {
         delete addresses[key];
         keys[x] = keys[keys.length - 1];
         keys.pop();
@@ -229,7 +250,6 @@ contract BadgerRegistry {
         return;
       }
     }
-
   }
 
   /// @dev Delete keys
@@ -243,12 +263,12 @@ contract BadgerRegistry {
   }
 
   /// @dev Retrieve the value of a key
-  function get(string memory key) public view returns (address){
+  function get(string memory key) public view returns (address) {
     return addresses[key];
   }
 
   /// @dev Get keys count
-  function keysCount() public view returns (uint256){
+  function keysCount() public view returns (uint256) {
     return keys.length;
   }
 
@@ -257,9 +277,9 @@ contract BadgerRegistry {
   //@notice however you have no guarantee that all keys will be in the list
   function _addKey(string memory key) internal {
     //If we find the key, skip
-    for(uint256 x = 0; x < keys.length; x++){
+    for (uint256 x = 0; x < keys.length; x++) {
       // Compare strings via their hash because solidity
-      if(keccak256(bytes(key)) == keccak256(bytes(keys[x]))) {
+      if (keccak256(bytes(key)) == keccak256(bytes(keys[x]))) {
         return;
       }
     }
@@ -282,7 +302,11 @@ contract BadgerRegistry {
   }
 
   /// @dev Retrieve a list of all Vaults that are in production, based on Version and Status
-  function getFilteredProductionVaults(string memory version, VaultStatus status) public view returns (VaultInfo[] memory) {
+  function getFilteredProductionVaults(string memory version, VaultStatus status)
+    public
+    view
+    returns (VaultInfo[] memory)
+  {
     uint256 length = productionVaults[version][status].length();
 
     VaultInfo[] memory list = new VaultInfo[](length);
@@ -297,25 +321,22 @@ contract BadgerRegistry {
 
     VaultData[] memory data = new VaultData[](versionsCount * VAULT_STATUS_LENGTH);
 
-    for(uint256 x = 0; x < versionsCount; x++) {
-      for(uint256 y = 0; y < VAULT_STATUS_LENGTH; y++) {
+    for (uint256 x = 0; x < versionsCount; x++) {
+      for (uint256 y = 0; y < VAULT_STATUS_LENGTH; y++) {
         uint256 length = productionVaults[versions[x]][VaultStatus(y)].length();
         VaultMetadata[] memory list = new VaultMetadata[](length);
-        for(uint256 z = 0; z < length; z++){
+        for (uint256 z = 0; z < length; z++) {
           VaultInfo storage vaultInfo = productionVaultInfoByVault[productionVaults[versions[x]][VaultStatus(y)].at(z)];
-          list[z] = VaultMetadata({
-            vault: vaultInfo.vault,
-            metadata: vaultInfo.metadata
-          });
+          list[z] = VaultMetadata({vault: vaultInfo.vault, metadata: vaultInfo.metadata});
         }
-        data[x * VAULT_STATUS_LENGTH + y] = VaultData({
-          version: versions[x],
-          status: VaultStatus(y),
-          list: list
-        });
+        data[x * VAULT_STATUS_LENGTH + y] = VaultData({version: versions[x], status: VaultStatus(y), list: list});
       }
     }
 
     return data;
   }
+
+  /// @notice Metadata is used for offchain naming and information display of vaults
+  /// @dev Metadata expected format: name=MyVault,protocol=Badger,
+  function verifyMetadata(string memory metadata) internal returns (bool) {}
 }
