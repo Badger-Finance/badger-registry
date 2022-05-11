@@ -151,7 +151,7 @@ contract BadgerRegistry {
 
   /// @dev Promote a vault to Production
   /// @dev Promote just means indexed by the Governance Address
-  function promote(address vault, VaultStatus status) public {
+  function promote(address vault, string memory version, string memory metadata, VaultStatus status) public {
     require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == devGovernance, "!auth");
 
     VaultStatus actualStatus = status;
@@ -159,22 +159,36 @@ contract BadgerRegistry {
       actualStatus = VaultStatus.experimental;
     }
 
-    VaultInfo memory existedVaultInfo = productionVaultInfoByVault[vault];
-    require(existedVaultInfo.vault != address(0), "BadgerRegistry: Vault does not exist");
-    // Value should be allowed to be equal to allow for promotion of vaults to experimental status as prod vaults
+    VaultInfo memory existedVaultInfo = productionVaultInfoByVault[vault];    
+    if (existedVaultInfo.vault != address(0)) {
+      require(
+        // Compare strings via their hash because solidity
+        vault == existedVaultInfo.vault
+          && keccak256(bytes(version)) == keccak256(bytes(existedVaultInfo.version)),
+        "BadgerRegistry: vault info changed. Please demote before promote changed vault info"
+      );
+      productionVaultInfoByVault[vault].status = actualStatus;
+    } else {
+      productionVaultInfoByVault[vault] = VaultInfo({
+        vault: vault,
+        version: version,
+        status: actualStatus,
+        metadata: metadata
+      });
+    }
     require(uint256(actualStatus) >= uint256(existedVaultInfo.status), "BadgerRegistry: Vault is not being promoted");
 
-    bool addedToVersionStatusSet = productionVaults[existedVaultInfo.version][actualStatus].add(vault);
+    bool addedToVersionStatusSet = productionVaults[version][actualStatus].add(vault);
     // If addedToVersionStatusSet remove from old and emit event
     if (addedToVersionStatusSet) {
       // also remove from old prod
       if (uint256(actualStatus) > 0) {
         for (uint256 status_ = uint256(actualStatus); status_ > 0; --status_) {
-          productionVaults[existedVaultInfo.version][VaultStatus(status_ - 1)].remove(vault);
+          productionVaults[version][VaultStatus(status_ - 1)].remove(vault);
         }
       }
 
-      emit PromoteVault(msg.sender, existedVaultInfo.version, existedVaultInfo.metadata, vault, actualStatus);
+      emit PromoteVault(msg.sender, version, metadata, vault, actualStatus);
     }
   }
 
@@ -191,15 +205,10 @@ contract BadgerRegistry {
     // Value should be allowed to be equal to allow for promotion of vaults to experimental status as prod vaults
     require(uint256(actualStatus) < uint256(existedVaultInfo.status), "BadgerRegistry: Vault is not being demoted");
 
-    bool removedFromVersionStatusSet = productionVaults[existedVaultInfo.version][actualStatus].remove(vault);
-    if (removedFromVersionStatusSet) {
-      if (uint256(actualStatus) < VAULT_STATUS_LENGTH - 1) {
-        for (uint256 status_ = uint256(actualStatus); status_ <= VAULT_STATUS_LENGTH - 1; status_++) {
-          productionVaults[existedVaultInfo.version][VaultStatus(status_)].remove(vault);
-        }
-      }
-      emit DemoteVault(msg.sender, existedVaultInfo.version, existedVaultInfo.metadata, vault, status);
-    }
+    productionVaults[existedVaultInfo.version][existedVaultInfo.status].remove(vault);
+    productionVaultInfoByVault[vault].status = status;
+    emit DemoteVault(msg.sender, existedVaultInfo.version, existedVaultInfo.metadata, vault, status);
+    productionVaults[existedVaultInfo.version][status].add(vault);
   }
 
   function purge(address vault) public {
