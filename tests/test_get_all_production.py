@@ -7,36 +7,32 @@ def test_get_production_vaults(registry, vault, vault_one, vault_two, vault_thre
   # If gov promotes, it goes to any step
   # Rando can't promote 
   
-  ## Even though we put 2 here, we still only go to 0 because devGov is limited to it
-  registry.promote("v1", "DCA-BTC-CVX", vault_one, 0, {"from": devGov})
+  ## Even though we put 2 here, we still only go to 1 because devGov is limited to it
+  registry.promote(vault_one, "v1", "name=BTC-CVX,protocol=Badger,behavior=DCA", 0, {"from": devGov})
+  assert registry.getFilteredProductionVaults("v1", 1) == [[vault_one, "v1", "1", "name=BTC-CVX,protocol=Badger,behavior=DCA"]]
+  registry.demote(vault_one, 0, {"from": gov})
 
   ## Gov can promote to anything
-  registry.promote("v2", "DCA-ETH-CVX", vault_two, 1, {"from": gov})
-  registry.promote("v1", "DCA-BTC-CVX", vault_three, 2, {"from": gov})
-  registry.promote("v2", "DCA-MATIC-CVX", vault_four, 3, {"from": gov})
+  registry.promote(vault_two, "v2", "name=ETH-CVX,protocol=Badger,behavior=DCA", 1, {"from": gov})
+  registry.promote(vault_three, "v1", "name=BTC-CVX,protocol=Badger,behavior=DCA", 2, {"from": gov})
+  registry.promote(vault_four, "v2", "name=MATIC-CVX,protocol=Badger,behavior=DCA", 3, {"from": gov})
 
-  assert registry.getFilteredProductionVaults("v1", 0) == [[vault_one, "v1", "DCA-BTC-CVX"]]
-  assert registry.getFilteredProductionVaults("v2", 1) == [[vault_two, "v2", "DCA-ETH-CVX"]]
-  assert registry.getFilteredProductionVaults("v1", 2) == [[vault_three, "v1", "DCA-BTC-CVX"]]
-  assert registry.getFilteredProductionVaults("v2", 3) == [[vault_four, "v2", "DCA-MATIC-CVX"]]
+  assert registry.getFilteredProductionVaults("v1", 0) == [[vault_one, "v1", "0", "name=BTC-CVX,protocol=Badger,behavior=DCA"]]
+  assert registry.getFilteredProductionVaults("v2", 1) == [[vault_two, "v2", "1", "name=ETH-CVX,protocol=Badger,behavior=DCA"]]
+  assert registry.getFilteredProductionVaults("v1", 2) == [[vault_three, "v1", "2", "name=BTC-CVX,protocol=Badger,behavior=DCA"]]
+  assert registry.getFilteredProductionVaults("v2", 3) == [[vault_four, "v2", "3", "name=MATIC-CVX,protocol=Badger,behavior=DCA"]]
 
   result = registry.getProductionVaults()
 
-  assert result[0] == ("v1", 0, [[vault_one, "DCA-BTC-CVX"]])
+  assert result[0] == ("v1", 0, [[vault_one, "name=BTC-CVX,protocol=Badger,behavior=DCA"]])
   assert result[1] == ("v1", 1, [])
-  assert result[2] == ("v1", 2, [[vault_three, "DCA-BTC-CVX"]])
+  assert result[2] == ("v1", 2, [[vault_three, "name=BTC-CVX,protocol=Badger,behavior=DCA"]])
   assert result[3] == ("v1", 3, [])
-  assert result[4] == ("v2", 0, [])
-  assert result[5] == ("v2", 1, [[vault_two, "DCA-ETH-CVX"]])
-  assert result[6] == ("v2", 2, [])
-  assert result[7] == ("v2", 3, [[vault_four, "DCA-MATIC-CVX"]])
-
-def test_get_filtered_production_vaults_by_metadata_and_status(registry, vault_one, vault_two, vault_three, vault_four, gov):
-  registry.promote("v1", "DCA-BTC-CVX", vault_one, 0, {"from": gov})
-  registry.promote("v2", "DCA-ETH-CVX", vault_two, 1, {"from": gov})
-  registry.promote("v1", "DCA-BTC-CVX", vault_three, 2, {"from": gov})
-  registry.promote("v1", "DCA-ETH-CVX", vault_four, 1, {"from": gov})
-
-  assert registry.getFilteredProductionVaultsByMetadataAndStatus("DCA-BTC-CVX", 0) == [[vault_one, "v1", "DCA-BTC-CVX"]]
-  assert registry.getFilteredProductionVaultsByMetadataAndStatus("DCA-ETH-CVX", 1) == [[vault_two, "v2", "DCA-ETH-CVX"], [vault_four, "v1", "DCA-ETH-CVX"]]
-  assert registry.getFilteredProductionVaultsByMetadataAndStatus("DCA-BTC-CVX", 2) == [[vault_three, "v1", "DCA-BTC-CVX"]]
+  assert result[4] == ("v1.5", 0, [])
+  assert result[5] == ("v1.5", 1, [])
+  assert result[6] == ("v1.5", 2, [])
+  assert result[7] == ("v1.5", 3, [])
+  assert result[8] == ("v2", 0, [])
+  assert result[9] == ("v2", 1, [[vault_two, "name=ETH-CVX,protocol=Badger,behavior=DCA"]])
+  assert result[10] == ("v2", 2, [])
+  assert result[11] == ("v2", 3, [[vault_four, "name=MATIC-CVX,protocol=Badger,behavior=DCA"]])

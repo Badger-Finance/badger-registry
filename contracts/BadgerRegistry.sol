@@ -111,6 +111,7 @@ contract BadgerRegistry {
     string memory version,
     string memory metadata
   ) public {
+    verifyMetadata(metadata);
     VaultInfo memory existedVaultInfo = vaultInfoByAuthorAndVault[msg.sender][vault];
     if (existedVaultInfo.vault != address(0)) {
       require(
@@ -153,6 +154,7 @@ contract BadgerRegistry {
   /// @dev Promote just means indexed by the Governance Address
   function promote(address vault, string memory version, string memory metadata, VaultStatus status) public {
     require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == devGovernance, "!auth");
+    verifyMetadata(metadata);
 
     VaultStatus actualStatus = status;
     if (msg.sender == devGovernance) {
@@ -346,6 +348,39 @@ contract BadgerRegistry {
   }
 
   /// @notice Metadata is used for offchain naming and information display of vaults
-  /// @dev Metadata expected format: name=MyVault,protocol=Badger,
-  function verifyMetadata(string memory metadata) internal returns (bool) {}
+  /// @dev Metadata expected format: name=MyVault,protocol=Badger,behavior=DCA
+  function verifyMetadata(string memory metadata) private pure {
+    bytes memory metadataBytes = bytes(metadata);
+    uint256 nameIndex;
+    uint256 protocolIndex;
+    uint256 behaviorIndex;
+    for (uint256 i = 0; i < metadataBytes.length; i++) {
+      if (metadataBytes[i] == 0x3d) { // "="
+        if (nameIndex == 0) {
+          nameIndex = i;
+        } else if (protocolIndex == 0) {
+          protocolIndex = i;
+        } else if (behaviorIndex == 0) {
+          behaviorIndex = i;
+          break;
+        }
+      }
+    }
+    require(nameIndex > 0, "BadgerRegistry: Invalid Name");
+    require(protocolIndex > 0, "BadgerRegistry: Invalid Protocol");
+    require(behaviorIndex > 0, "BadgerRegistry: Invalid Behavior");
+    // offsets on indices are to backtrack to start of expected delimiter
+    require(keccak256(getSlice(metadataBytes, 0, nameIndex - 1)) == keccak256("name"), "BadgerRegistry: Invalid Name");
+    require(keccak256(getSlice(metadataBytes, protocolIndex - 8, protocolIndex - 1)) == keccak256("protocol"), "BadgerRegistry: Invalid Protocol");
+    require(keccak256(getSlice(metadataBytes, behaviorIndex - 8, behaviorIndex - 1)) == keccak256("behavior"), "BadgerRegistry: Invalid Behavior");
+  }
+
+  // https://ethereum.stackexchange.com/questions/78559/how-can-i-slice-bytes-strings-and-arrays-in-solidity
+  function getSlice(bytes memory text, uint256 begin, uint256 end) private pure returns (bytes memory) {
+    bytes memory a = new bytes(end-begin+1);
+    for(uint256 i=begin;i<=end;i++){
+      a[i - begin] = text[i];
+    }
+    return a;
+  }
 }
