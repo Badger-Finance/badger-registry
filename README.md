@@ -65,7 +65,7 @@ This is a list of keys we use at Badger to standardize cross-chain deployments
 - keeper
 - badgerTree
 - governance
-- devGovernance
+- developer
 
 
 - proxyAdminDev

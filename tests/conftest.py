@@ -26,7 +26,7 @@ def registry(gov, BadgerRegistry, strategistGuild):
 
 @pytest.fixture
 def devGov(accounts, registry, gov):
-  registry.setDev(accounts[3], {"from": gov})
+  registry.setDeveloper(accounts[3], {"from": gov})
   
   return accounts[3]
   

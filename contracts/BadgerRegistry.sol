@@ -37,7 +37,7 @@ contract BadgerRegistry {
 
   /// @dev Multisig. Vaults from here are considered Production ready
   address public governance;
-  address public devGovernance; //@notice an address with some powers to make things easier in development
+  address public developer; //@notice an address with some powers to make things easier in development
   address public strategistGuild;
 
   /// @dev Given an Author Address, and Version, Return the Vault
@@ -74,7 +74,7 @@ contract BadgerRegistry {
     require(governance == address(0));
     governance = newGovernance;
     strategistGuild = newStrategistGuild;
-    devGovernance = address(0);
+    developer = address(0);
 
     versions.push("v1"); //For v1
     versions.push("v1.5"); //For v1.5
@@ -86,9 +86,9 @@ contract BadgerRegistry {
     governance = _newGov;
   }
 
-  function setDev(address newDev) public {
-    require(msg.sender == governance || msg.sender == devGovernance, "!gov");
-    devGovernance = newDev;
+  function setDeveloper(address newDev) public {
+    require(msg.sender == governance || msg.sender == developer, "!gov");
+    developer = newDev;
   }
 
   function setStrategistGuild(address newStrategistGuild) public {
@@ -158,11 +158,11 @@ contract BadgerRegistry {
     string memory metadata,
     VaultStatus status
   ) public {
-    require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == devGovernance, "!auth");
+    require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == developer, "!auth");
     verifyMetadata(metadata);
 
     VaultStatus actualStatus = status;
-    if (msg.sender == devGovernance) {
+    if (msg.sender == developer) {
       actualStatus = VaultStatus.experimental;
     }
 
@@ -199,11 +199,11 @@ contract BadgerRegistry {
   }
 
   function demote(address vault, VaultStatus status) public {
-    require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == devGovernance, "!auth");
+    require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == developer, "!auth");
 
     VaultStatus actualStatus = status;
-    if (msg.sender == devGovernance) {
-      actualStatus = VaultStatus.experimental;
+    if (msg.sender == developer) {
+      require(actualStatus == VaultStatus.deprecated || actualStatus == VaultStatus.experimental, "devGov: Can only bump down");
     }
 
     VaultInfo memory existedVaultInfo = productionVaultInfoByVault[vault];
