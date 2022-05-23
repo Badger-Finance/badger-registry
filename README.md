@@ -78,3 +78,22 @@ This is a list of keys we use at Badger to standardize cross-chain deployments
 
 - BADGER
 - ibBTC
+
+
+## Use Cases from V2
+
+### Get key name by address
+`keyByAddress(address) external view returns (string)`
+
+### Deprecated Vault Status
+New Status, deprecated
+
+### StrategistGuild
+Fast Multisig that can do some major changes but can be replaced by governance
+
+### Deletion of Keys
+`deleteKey(string memory key)`
+
+### Deletion of Vaults
+`purge(address vault)`
+
