@@ -81,16 +81,20 @@ contract BadgerRegistry {
     versions.push("v2"); //For v2
   }
 
+
+  /// @dev Setter for Governance the highest level of admin control
   function setGovernance(address _newGov) public {
     require(msg.sender == governance, "!gov");
     governance = _newGov;
   }
 
+  /// @dev Setter for developer, a fast EOA that can demote and only promote to experimental
   function setDeveloper(address newDev) public {
     require(msg.sender == governance || msg.sender == developer, "!gov");
     developer = newDev;
   }
 
+  /// @dev Setter for StrategistGuild a Multi that can do pretty much as much as governance
   function setStrategistGuild(address newStrategistGuild) public {
     require(msg.sender == governance, "!gov");
     strategistGuild = newStrategistGuild;
@@ -105,7 +109,8 @@ contract BadgerRegistry {
     emit AddVersion(version);
   }
 
-  /// @dev Anyone can add a vault to here, it will be indexed by their address
+  /// @dev Add a vault, under the msg.sender key
+  /// @notice Anyone can add a vault to here, it will be indexed by their address
   function add(
     address vault,
     string memory version,
@@ -151,7 +156,8 @@ contract BadgerRegistry {
   }
 
   /// @dev Promote a vault to Production
-  /// @dev Promote just means indexed by the Governance Address
+  /// @notice Promote just means indexed by the Governance Address
+  /// @notice developer can only promote up to experimental
   function promote(
     address vault,
     string memory version,
@@ -199,6 +205,8 @@ contract BadgerRegistry {
     }
   }
 
+  /// @dev Demotes the vault to a lower status
+  /// @notice all roles can demote
   function demote(address vault, VaultStatus status) public {
     require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == developer, "!auth");
 
@@ -329,6 +337,8 @@ contract BadgerRegistry {
     return list;
   }
 
+
+  /// @dev Given the list of versions, fetches all production vaults
   function getProductionVaults() public view returns (VaultData[] memory) {
     uint256 versionsCount = versions.length;
 
