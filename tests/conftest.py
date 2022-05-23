@@ -15,9 +15,13 @@ def gov(accounts):
   return accounts[0]
 
 @pytest.fixture
-def registry(gov, BadgerRegistry):
+def strategistGuild(accounts):
+  return accounts[1]
+
+@pytest.fixture
+def registry(gov, BadgerRegistry, strategistGuild):
     registry = gov.deploy(BadgerRegistry)
-    registry.initialize(gov)
+    registry.initialize(gov, strategistGuild)
     yield registry
 
 @pytest.fixture
@@ -42,6 +46,10 @@ def vault_two():
 @pytest.fixture
 def vault_three():
   yield "0x235c9e24D3FB2FAFd58a2E49D454Fdcd2DBf7FF1"
+
+@pytest.fixture
+def vault_four():
+  yield "0x2A8facc9D49fBc3ecFf569847833C380A13418a8"
 
 ## Forces reset before each test
 @pytest.fixture(autouse=True)
