@@ -163,6 +163,7 @@ contract BadgerRegistry {
 
     VaultStatus actualStatus = status;
     if (msg.sender == developer) {
+      // Developer can only bump up to experimental
       actualStatus = VaultStatus.experimental;
     }
 
@@ -202,9 +203,6 @@ contract BadgerRegistry {
     require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == developer, "!auth");
 
     VaultStatus actualStatus = status;
-    if (msg.sender == developer) {
-      require(actualStatus == VaultStatus.deprecated || actualStatus == VaultStatus.experimental, "devGov: Can only bump down");
-    }
 
     VaultInfo memory existedVaultInfo = productionVaultInfoByVault[vault];
     require(existedVaultInfo.vault != address(0), "BadgerRegistry: Vault does not exist");
