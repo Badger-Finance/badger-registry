@@ -37,7 +37,7 @@ contract BadgerRegistry {
 
   /// @dev Multisig. Vaults from here are considered Production ready
   address public governance;
-  address public devGovernance; //@notice an address with some powers to make things easier in development
+  address public developer; //@notice an address with some powers to make things easier in development
   address public strategistGuild;
 
   /// @dev Given an Author Address, and Version, Return the Vault
@@ -74,23 +74,27 @@ contract BadgerRegistry {
     require(governance == address(0));
     governance = newGovernance;
     strategistGuild = newStrategistGuild;
-    devGovernance = address(0);
+    developer = address(0);
 
     versions.push("v1"); //For v1
     versions.push("v1.5"); //For v1.5
     versions.push("v2"); //For v2
   }
 
+
+  /// @dev Setter for Governance the highest level of admin control
   function setGovernance(address _newGov) public {
     require(msg.sender == governance, "!gov");
     governance = _newGov;
   }
 
-  function setDev(address newDev) public {
-    require(msg.sender == governance || msg.sender == devGovernance, "!gov");
-    devGovernance = newDev;
+  /// @dev Setter for developer, a fast EOA that can demote and only promote to experimental
+  function setDeveloper(address newDev) public {
+    require(msg.sender == governance || msg.sender == developer, "!gov");
+    developer = newDev;
   }
 
+  /// @dev Setter for StrategistGuild a Multi that can do pretty much as much as governance
   function setStrategistGuild(address newStrategistGuild) public {
     require(msg.sender == governance, "!gov");
     strategistGuild = newStrategistGuild;
@@ -105,7 +109,8 @@ contract BadgerRegistry {
     emit AddVersion(version);
   }
 
-  /// @dev Anyone can add a vault to here, it will be indexed by their address
+  /// @dev Add a vault, under the msg.sender key
+  /// @notice Anyone can add a vault to here, it will be indexed by their address
   function add(
     address vault,
     string memory version,
@@ -151,18 +156,20 @@ contract BadgerRegistry {
   }
 
   /// @dev Promote a vault to Production
-  /// @dev Promote just means indexed by the Governance Address
+  /// @notice Promote just means indexed by the Governance Address
+  /// @notice developer can only promote up to experimental
   function promote(
     address vault,
     string memory version,
     string memory metadata,
     VaultStatus status
   ) public {
-    require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == devGovernance, "!auth");
+    require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == developer, "!auth");
     verifyMetadata(metadata);
 
     VaultStatus actualStatus = status;
-    if (msg.sender == devGovernance) {
+    if (msg.sender == developer) {
+      // Developer can only bump up to experimental
       actualStatus = VaultStatus.experimental;
     }
 
@@ -198,13 +205,12 @@ contract BadgerRegistry {
     }
   }
 
+  /// @dev Demotes the vault to a lower status
+  /// @notice all roles can demote
   function demote(address vault, VaultStatus status) public {
-    require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == devGovernance, "!auth");
+    require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == developer, "!auth");
 
     VaultStatus actualStatus = status;
-    if (msg.sender == devGovernance) {
-      actualStatus = VaultStatus.experimental;
-    }
 
     VaultInfo memory existedVaultInfo = productionVaultInfoByVault[vault];
     require(existedVaultInfo.vault != address(0), "BadgerRegistry: Vault does not exist");
@@ -331,6 +337,8 @@ contract BadgerRegistry {
     return list;
   }
 
+
+  /// @dev Given the list of versions, fetches all production vaults
   function getProductionVaults() public view returns (VaultData[] memory) {
     uint256 versionsCount = versions.length;
 
