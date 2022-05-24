@@ -81,7 +81,6 @@ contract BadgerRegistry {
     versions.push("v2"); //For v2
   }
 
-
   /// @dev Setter for Governance the highest level of admin control
   function setGovernance(address _newGov) public {
     require(msg.sender == governance, "!gov");
@@ -239,6 +238,18 @@ contract BadgerRegistry {
     }
   }
 
+  /// @notice Metadata may need to be updated in the case of a vault upgrade (e.g. curve -> convex)
+  /// @dev Update a vault metadata
+  /// @param vault Vault address
+  function updateMetadata(address vault, string memory metadata) public {
+    require(msg.sender == governance || msg.sender == strategistGuild, "!auth");
+    verifyMetadata(metadata);
+
+    require(productionVaultInfoByVault[vault].vault != address(0), "BadgerRegistry: Vault does not exist");
+
+    productionVaultInfoByVault[vault].metadata = metadata;
+  }
+
   /** KEY Management */
 
   /// @dev Set the value of a key to a specific address
@@ -336,7 +347,6 @@ contract BadgerRegistry {
     }
     return list;
   }
-
 
   /// @dev Given the list of versions, fetches all production vaults
   function getProductionVaults() public view returns (VaultData[] memory) {

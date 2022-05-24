@@ -7,7 +7,7 @@ def test_user_can_add_remove_vault(registry, vault, rando, gov):
     assert registry.getVaults("v1", rando) == [[vault, "v1", "1", "name=BTC-CVX,protocol=Badger,behavior=DCA"]]
 
     # User attempts to add vault with bad metadata and reverts
-    with brownie.reverts():
+    with brownie.reverts("BadgerRegistry: Invalid Name"):
         registry.add(vault, "v1", "DCA-BTC-CVX", {"from": rando})
 
     event = tx.events["NewVault"][0]

@@ -2,16 +2,20 @@ import brownie
 from brownie import ZERO_ADDRESS, accounts
 
 
-def test_vault_demote(registry, vault, rando, gov):
+def test_vault_demote(registry, vault, vault_two, rando, gov):
     registry.promote(vault, "v1", "name=BTC-CVX,protocol=Badger,behavior=DCA", 2, {"from": gov})
     assert registry.getFilteredProductionVaults("v1", 2) == [[vault, "v1", "2", "name=BTC-CVX,protocol=Badger,behavior=DCA"]]
 
     # Random user attempts to demote vault and reverts
-    with brownie.reverts():
+    with brownie.reverts("!auth"):
         registry.demote(vault, 0, {"from": rando})
 
+    # Vault must exist
+    with brownie.reverts("BadgerRegistry: Vault does not exist"):
+        registry.demote(vault_two, 2, {"from": gov})
+
     # Must be demoting (2 -> 3)
-    with brownie.reverts():
+    with brownie.reverts("BadgerRegistry: Vault is not being demoted"):
         registry.demote(vault, 3, {"from": gov})
 
     # Governance is able to demote vault
@@ -37,7 +41,7 @@ def test_vault_demote(registry, vault, rando, gov):
     assert event["status"] == 0
 
     # Must be demoting (0 -> 0)
-    with brownie.reverts():
+    with brownie.reverts("BadgerRegistry: Vault is not being demoted"):
         registry.demote(vault, 0, {"from": gov})
 
 
