@@ -28,7 +28,6 @@ def test_vault_promotion(registry, vault, rando, gov):
     assert len(tx.events) == 1
     assert registry.getFilteredProductionVaults("v1", 2) == [[vault, "v1", "2", "name=BTC-CVX,protocol=Badger,behavior=DCA"]]
 
-
 def test_vault_promotion_by_strategist_guild(registry, vault, strategistGuild):
     registry.promote(vault, "v1", "name=BTC-CVX,protocol=Badger,behavior=DCA", 1, {"from": strategistGuild})
     assert registry.getFilteredProductionVaults("v1", 1) == [[vault, "v1", "1", "name=BTC-CVX,protocol=Badger,behavior=DCA"]]
@@ -43,7 +42,6 @@ def test_vault_promotion_step_staging(registry, vault, rando, gov):
     ## After promoting a vault to the next steps, it's no longer in the previous step
     assert registry.getFilteredProductionVaults("v1", 1) == []
 
-
 def test_vault_promotion_step_prod(registry, vault, rando, gov):
     registry.promote(vault, "v1", "name=BTC-CVX,protocol=Badger,behavior=DCA", 1, {"from": gov})
     assert registry.getFilteredProductionVaults("v1", 1) == [[vault, "v1", "1", "name=BTC-CVX,protocol=Badger,behavior=DCA"]]
@@ -55,17 +53,6 @@ def test_vault_promotion_step_prod(registry, vault, rando, gov):
     assert registry.getFilteredProductionVaults("v1", 0) == []
 
 def test_vault_promotion_step_deprecated(registry, vault, rando, gov):
-    registry.promote("v1", "DCA-BTC-CVX", vault, 0, {"from": gov})
-    assert registry.getFilteredProductionVaults("v1", 0) == [[vault, "v1", "DCA-BTC-CVX"]]
-
-    registry.promote("v1", "DCA-BTC-CVX", vault, 3, {"from": gov})
-    assert registry.getFilteredProductionVaults("v1", 3) == [[vault, "v1", "DCA-BTC-CVX"]]
-
-    ## After promoting a vault to the next steps, it's no longer in the previous steps
-    assert registry.getFilteredProductionVaults("v1", 0) == []
-
-
-def test_vault_promotion_step_deprecated(registry, vault, rando, gov):
     registry.promote(vault, "v1", "name=BTC-CVX,protocol=Badger,behavior=DCA", 0, {"from": gov})
     assert registry.getFilteredProductionVaults("v1", 0) == [[vault, "v1", "0", "name=BTC-CVX,protocol=Badger,behavior=DCA"]]
 
@@ -74,7 +61,6 @@ def test_vault_promotion_step_deprecated(registry, vault, rando, gov):
 
     ## After promoting a vault to the next steps, it's no longer in the previous steps
     assert registry.getFilteredProductionVaults("v1", 0) == []
-
 
 def test_vault_promotion_permissions(registry, vault, rando, gov, devGov):
   ## If devGov promotes, the only step is 0
