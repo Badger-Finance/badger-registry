@@ -11,8 +11,12 @@ def test_update_metadata(registry, vault, rando, gov):
     assert registry.getFilteredProductionVaults("v1", 1) == [[vault, "v1", "1", "name=BTC-CVX,protocol=Badger,behavior=DCA"]]
 
     # Random user attempts to update metadata
-    with brownie.reverts():
+    with brownie.reverts("!auth"):
         registry.updateMetadata(vault, "name=BTC-BADGER,protocol=Balancer,behavior=Ecosystem", {"from": rando})
+
+    # Gov attempts to update bad metadata
+    with brownie.reverts("BadgerRegistry: Invalid Name"):
+        registry.updateMetadata(vault, "CVX-BTC-DCA", {"from": gov})
 
     registry.updateMetadata(vault, "name=BTC-BADGER,protocol=Balancer,behavior=Ecosystem", {"from": gov})
     assert registry.getFilteredProductionVaults("v1", 1) == [[vault, "v1", "1", "name=BTC-BADGER,protocol=Balancer,behavior=Ecosystem"]]
