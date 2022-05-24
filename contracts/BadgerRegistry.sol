@@ -15,25 +15,12 @@ contract BadgerRegistry {
     open
   }
 
-  uint256 private constant VAULT_STATUS_LENGTH = 4;
+  uint256 public constant VAULT_STATUS_LENGTH = 4;
 
   struct VaultInfo {
     address vault;
     string version;
     VaultStatus status;
-    string metadata;
-  }
-
-  struct VaultMetadata {
-    address vault;
-    string metadata;
-  }
-
-  uint public constant VAULT_STATUS_LENGTH = 4;
-
-  struct VaultInfo {
-    address vault;
-    string version;
     string metadata;
   }
 
@@ -93,7 +80,6 @@ contract BadgerRegistry {
     versions.push("v1.5"); //For v1.5
     versions.push("v2"); //For v2
   }
-
 
   /// @dev Setter for Governance the highest level of admin control
   function setGovernance(address _newGov) public {
@@ -213,20 +199,9 @@ contract BadgerRegistry {
           productionVaults[version][VaultStatus(status_ - 1)].remove(vault);
         }
       }
-    }
-
-    bool addedToMetadataStatusSet = productionVaultsByMetadataAndStatus[metadata][actualStatus].add(vault);
-    // If addedToMetadataStatusSet remove from old and emit event
-    if (addedToMetadataStatusSet) {
-      // also remove from old prod
-      if (actualStatus != VaultStatus(0)) {
-        for(uint256 preStatus = uint256(actualStatus) - 1; preStatus >= 0; --preStatus) {
-          productionVaultsByMetadataAndStatus[metadata][VaultStatus(actualStatus)].remove(vault);
-        }
-      }
-    }
 
       emit PromoteVault(msg.sender, version, metadata, vault, actualStatus);
+    }
   }
 
   /// @dev Demotes the vault to a lower status
@@ -261,6 +236,18 @@ contract BadgerRegistry {
       delete productionVaultInfoByVault[vault];
       emit PurgeVault(msg.sender, existedVaultInfo.version, existedVaultInfo.metadata, vault, existedVaultInfo.status);
     }
+  }
+
+  /// @notice Metadata may need to be updated in the case of a vault upgrade (e.g. curve -> convex)
+  /// @dev Update a vault metadata
+  /// @param vault Vault address
+  function updateMetadata(address vault, string memory metadata) public {
+    require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == developer, "!auth");
+    verifyMetadata(metadata);
+
+    require(productionVaultInfoByVault[vault].vault != address(0), "BadgerRegistry: Vault does not exist");
+
+    productionVaultInfoByVault[vault].metadata = metadata;
   }
 
   /** KEY Management */
@@ -360,7 +347,6 @@ contract BadgerRegistry {
     }
     return list;
   }
-
 
   /// @dev Given the list of versions, fetches all production vaults
   function getProductionVaults() public view returns (VaultData[] memory) {
