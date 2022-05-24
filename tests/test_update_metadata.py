@@ -14,6 +14,13 @@ def test_update_metadata(registry, vault, rando, gov):
     with brownie.reverts("!auth"):
         registry.updateMetadata(vault, "name=BTC-BADGER,protocol=Balancer,behavior=Ecosystem", {"from": rando})
 
+    registry.setDeveloper(rando, {"from": gov})
+    assert registry.developer() == rando
+    
+    # Developer attempts to update metadata
+    with brownie.reverts("!auth"):
+        registry.updateMetadata(vault, "name=BTC-BADGER,protocol=Balancer,behavior=Ecosystem", {"from": rando})
+
     # Gov attempts to update bad metadata
     with brownie.reverts("BadgerRegistry: Invalid Name"):
         registry.updateMetadata(vault, "CVX-BTC-DCA", {"from": gov})

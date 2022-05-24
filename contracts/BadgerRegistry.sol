@@ -242,7 +242,7 @@ contract BadgerRegistry {
   /// @dev Update a vault metadata
   /// @param vault Vault address
   function updateMetadata(address vault, string memory metadata) public {
-    require(msg.sender == governance || msg.sender == strategistGuild || msg.sender == developer, "!auth");
+    require(msg.sender == governance || msg.sender == strategistGuild, "!auth");
     verifyMetadata(metadata);
 
     require(productionVaultInfoByVault[vault].vault != address(0), "BadgerRegistry: Vault does not exist");
