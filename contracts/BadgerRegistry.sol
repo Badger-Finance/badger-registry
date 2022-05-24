@@ -15,7 +15,7 @@ contract BadgerRegistry {
     open
   }
 
-  uint256 public constant VAULT_STATUS_LENGTH = 4;
+  uint256 private constant VAULT_STATUS_LENGTH = 4;
 
   struct VaultInfo {
     address vault;
