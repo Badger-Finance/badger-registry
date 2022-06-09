@@ -29,7 +29,7 @@ def deploy_registry_logic(logic):
     Deploy the strat logic
     """
     dev = connect_account()
-    config = POLYGON_REGISTRY_CONFIG
+    config = ETH_REGISTRY_CONFIG
 
     if click.confirm("Deploy New Registry"):
         args = [

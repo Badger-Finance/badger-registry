@@ -4,7 +4,7 @@
 
 # Badger Registry
 
-The Badger Registry is the source of truth for any vaults curated and operated by Badger DAO.
+The Badger Registry is the source of truth for any vaults or infrastructure curated and operated by Badger DAO.
 The most current version of the registry is [version v0.2.1](https://github.com/Badger-Finance/badger-registry/releases/tag/v0.2.1).
 
 The entities governing the Badger Registry are `governance`, `developer`, and the `strategistGuild`.
@@ -24,6 +24,32 @@ Thre registry logix deployed at the following address:
 0x00000b7665850f6b1e99447a68db1e83d8deafe3
 ```
 
+This registry is currently deployed on the following networks:
+
+- Ethereum
+- Polygon
+- Arbitrum
+- Fantom
+
+The registry also contains a set of key value mappings for the project infrastructure per chain.
+These values may differ across chains.
+However, a set of consistent keys for key infrastructure will always be included.
+A non exhaustive list of these keys follows:
+
+- controller
+- guardian
+- keeper
+- badgerTree
+- governance
+- developer
+- proxyAdminDev
+- proxyAdminTimelock
+- governanceTimelock
+- timelock
+- keeperAccessControl
+- rewardsLogger
+- BADGER
+
 ## Development
 
 First, install node requirements.
@@ -37,11 +63,13 @@ Then, set a virtual environment.
 ```bash
 python3.9 -m venv venv
 source venv/bin/activate
+pip install -r requirements.txt
 ```
 
 ## Documentation
 
 - Add Docusaurus link here once available
+- This documentation will have some example usages
 
 ## Integrations
 
