@@ -1,64 +1,40 @@
-# badger-registry
-On Chain Registry for V1, V2 Vaults as well as Known Addresses via extensibly key address pairs
+<div> 
+  <img align="right" src="docs/images/new_badger.png" height="150" width="150" />
+</div>
 
+# Badger Registry
 
-## Deployment Addresses
+The Badger Registry is the source of truth for any vaults or infrastructure curated and operated by Badger DAO.
+The most current version of the registry is [version v0.2.1](https://github.com/Badger-Finance/badger-registry/releases/tag/v0.2.1).
 
-Mainnet
-https://etherscan.io/address/0xfda7eb6f8b7a9e9fcfd348042ae675d1d652454f
+The entities governing the Badger Registry are `governance`, `developer`, and the `strategistGuild`.
+Officially endorsed vaults will be considered `production` vaults, available on the provided views.
 
-Polygon:
-https://polygonscan.com/address/0xfda7eb6f8b7a9e9fcfd348042ae675d1d652454f
+All vaults in development, or considered by the DAO may be submitted by `developer` or the `strategistGuild`.
 
-Arbitrum:
-https://arbiscan.io/address/0xFda7eB6f8b7a9e9fCFd348042ae675d1d652454f#code
+The registry proxy is deployed at the following address: 
 
-Fantom
-https://ftmscan.com/address/0xFda7eB6f8b7a9e9fCFd348042ae675d1d652454f
+```text
+0xdc602965F3e5f1e7BAf2446d5564b407d5113A06
+```
 
-## Example Usage - Keys
-### Get the Address of the Controller for this network
-```registry.get("controller")```
+Thre registry logix deployed at the following address:
 
-## Example Usage - Vaults
+```text
+0x00000b7665850f6b1e99447a68db1e83d8deafe3
+```
 
-### Retrieve Live Production Vault that use V1 Architecture
+This registry is currently deployed on the following networks:
 
-```registry.getFilteredProductionVaults("v1", 2);```
+- Ethereum
+- Polygon
+- Arbitrum
+- Fantom
 
-### Retrieve Experimental V2 Production Vaults
-```registry.getFilteredProductionVaults("v2", 0);```
-
-### Get all Production Vaults, separated by Version and Type
-```registry.getProductionVaults();```
-
-## Brownie Usage
-
-1. Run The Console ```brownie console```
-2. Get the registry ```registry = BadgerRegistry.at("ADDRESS FOR THE NETWORK YOU WANT")```
-3. Get the keys ```registry.get("whatever")```
-
-
-## More details
-
-### Find keys without knowing what they are
-Go spam `keys(uint)` with various indexes until you run out of range
-
-### Find versions without knowing what they are
-Go spam `versions(uint)` with various indexes until you run out of range
-
-### Find Production Steps / Status for Vaults
-Check the Enum `VaultStatus` for the steps
-
-
-## List of Keys (incomplete)
-
-By defintion the list of keys is incomplete, just iterate over the `keys(uint256)` to find them
-Some of these keys may be missing in some deployments
-While not a security vulnerability this may impact some of our flows
-Please do create a ISSUE if you find a missing key
-
-This is a list of keys we use at Badger to standardize cross-chain deployments
+The registry also contains a set of key value mappings for the project infrastructure per chain.
+These values may differ across chains.
+However, a set of consistent keys for key infrastructure will always be included.
+A non exhaustive list of these keys follows:
 
 - controller
 - guardian
@@ -66,34 +42,69 @@ This is a list of keys we use at Badger to standardize cross-chain deployments
 - badgerTree
 - governance
 - developer
-
-
 - proxyAdminDev
 - proxyAdminTimelock
 - governanceTimelock
 - timelock
-
 - keeperAccessControl
 - rewardsLogger
-
 - BADGER
-- ibBTC
 
+## Development
 
-## Use Cases from V2
+First, install node requirements.
 
-### Get key name by address
-`keyByAddress(address) external view returns (string)`
+```bash
+yarn install
+```
 
-### Deprecated Vault Status
-New Status, deprecated
+Then, set a virtual environment.
 
-### StrategistGuild
-Fast Multisig that can do some major changes but can be replaced by governance
+```bash
+python3.9 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
 
-### Deletion of Keys
-`deleteKey(string memory key)`
+## Documentation
 
-### Deletion of Vaults
-`purge(address vault)`
+- Add Docusaurus link here once available
+- This documentation will have some example usages
 
+## Integrations
+
+- [Badger SDK Implementation](https://github.com/Badger-Finance/badger-sdk/blob/main/src/registry.v2/registry.v2.service.ts)
+
+## Key Items
+
+The Badger Registry exposes a few select methods of interest to developers, the multisig, or members of the strategist guild.
+These functions assist in the maintenance of the vault registries.
+
+```solidity
+function add(
+  address vault,
+  string memory version,
+  string memory metadata
+)
+```
+
+### add
+
+Add allows the addition of vaults to the registry.
+It is a permissionless operation - anyone can add to the registry in this way.
+Practically, this will not impact the source of truth as only `governance`, `developer`, or the `strategistGuild` would be a non production trusted address.
+
+```solidity
+function promote(
+  address vault,
+  string memory version,
+  string memory metadata,
+  VaultStatus status
+)
+```
+
+### promote
+
+Promote allows vaults to be moved to a productionized vault in a given state.
+Only specific roles may perform promotions.
+A promoted vault is registered as production, and is integrated immediately with the subgraph and the API.
