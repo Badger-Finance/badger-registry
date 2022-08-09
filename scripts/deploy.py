@@ -23,13 +23,17 @@ FANTOM_REGISTRY_CONFIG = {
     'proxyAdmin': web3.toChecksumAddress("0x20Dce41Acca85E8222D6861Aa6D23B6C941777bF"),
     'techOps': web3.toChecksumAddress("0x781E82D5D49042baB750efac91858cB65C6b0582"),
 }
+OPTIMISM_REGISTRY_CONFIG = {
+    'proxyAdmin': web3.toChecksumAddress("0x52FE2D2332FFCE104959DabF45383c6F25c3C21b"),
+    'techOps': web3.toChecksumAddress("0x8D05c5DA2a3Cb4BeB4C5EB500EE9e3Aa71670733"),
+}
 
 def deploy_registry_logic(logic):
     """
     Deploy the strat logic
     """
     dev = connect_account()
-    config = ETH_REGISTRY_CONFIG
+    config = OPTIMISM_REGISTRY_CONFIG
 
     if click.confirm("Deploy New Registry"):
         args = [
