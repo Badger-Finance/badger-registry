@@ -4,6 +4,8 @@
 
 # Badger Registry
 
+NOTE: If you're finding this from Immunefi, all Vaults and Strategies listed in the live registries are in scope, as well as the contracts listed under keyes.
+
 The Badger Registry is the source of truth for any vaults or infrastructure curated and operated by Badger DAO.
 The most current version of the registry is [version v0.2.1](https://github.com/Badger-Finance/badger-registry/releases/tag/v0.2.1).
 
